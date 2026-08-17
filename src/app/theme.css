@@ -1,0 +1,153 @@
+@import 'tailwindcss';
+
+/*
+ * Pinto's visual system.
+ *
+ * Brand palette: #DF301C vermilion · #FF9100 orange · #FFF1D1 cream ·
+ * #00B7CD cyan. Vermilion is the PRIMARY colour — it fills the main action,
+ * focus, links and selection. Cyan is the secondary/informational accent.
+ * Orange + cream carry warnings. Green stays for "price went up", because
+ * green→up is read at a glance and reversing it would cost the user speed.
+ *
+ * Colour still carries meaning, never decoration: in a table of 140 prices
+ * every coloured pixel is a signal.
+ */
+
+@theme {
+  --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  --color-ink-50: #f7f8fa;
+  --color-ink-100: #eef0f4;
+  --color-ink-200: #e2e5ec;
+  --color-ink-300: #cbd0da;
+  --color-ink-400: #98a1b3;
+  --color-ink-500: #6b7488;
+  --color-ink-600: #4d5566;
+  --color-ink-700: #363d4c;
+  --color-ink-800: #232937;
+  --color-ink-900: #141821;
+  --color-ink-950: #0b0e14;
+
+  /* Primary — vermilion #DF301C. */
+  --color-accent-50: #fdece9;
+  --color-accent-100: #fbd6d0;
+  --color-accent-300: #f08a7d;
+  --color-accent-500: #df301c;
+  --color-accent-600: #c32819;
+  --color-accent-700: #a02114;
+
+  /* Secondary / informational accent — cyan #00B7CD. */
+  --color-cyan-50: #e6f8fb;
+  --color-cyan-100: #c7f0f5;
+  --color-cyan-500: #00b7cd;
+  --color-cyan-600: #009cb0;
+  --color-cyan-700: #00788a;
+
+  /* Warm identity gradient — the Pinto mark only. */
+  --color-brand-from: #ff9100;
+  --color-brand-to: #df301c;
+
+  /* Up — a teal-green that sits beside the cyan accent. */
+  --color-rise-500: #0e8a63;
+  --color-rise-50: #e4f5ee;
+  /* Down — vermilion; a delta badge's tint keeps it distinct from a control. */
+  --color-fall-500: #df301c;
+  --color-fall-50: #fdece9;
+  /* Warning — bright orange for marks, dark orange for readable text, brand
+     cream for the fill. */
+  --color-warn-500: #a85700;
+  --color-warn-bright: #ff9100;
+  --color-warn-50: #fff1d1;
+
+  --radius-panel: 14px;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-ink-50);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-accent-100);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-500);
+    outline-offset: 1px;
+    border-radius: 4px;
+  }
+
+  /* A dense table with a native scrollbar looks unfinished; a hidden one is
+     hostile. This is the compromise: present, quiet, and always grabbable. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-300);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-400);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .pinto-card {
+    background: #fff;
+    border: 1px solid var(--color-ink-200);
+    border-radius: 10px;
+  }
+
+  /* A changed row is highlighted in calm cyan, not the primary red — a table
+     full of red rows would read as a table full of errors. */
+  .pinto-row-changed {
+    background: linear-gradient(90deg, var(--color-cyan-50) 0%, transparent 60%);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  /* Skeletons breathe rather than sweep: a shimmer across 140 rows is noise. */
+  .pinto-skeleton {
+    background: var(--color-ink-100);
+    border-radius: 4px;
+    animation: pinto-pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pinto-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}

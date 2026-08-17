@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Pinto — bulk pricing for Google Play",
+  "short_name": "Pinto",
+  "version": "0.1.0",
+  "description": "Bulk pricing, without the bulk work. Edit Google Play regional prices across every country from one review-before-apply workflow.",
+  "minimum_chrome_version": "114",
+  "action": {
+    "default_title": "Pinto",
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://play.google.com/console/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "identity"],
+  "host_permissions": [
+    "https://play.google.com/console/*",
+    "https://androidpublisher.googleapis.com/*",
+    "https://openidconnect.googleapis.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/panel/index.html", "assets/*"],
+      "matches": ["https://play.google.com/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; frame-ancestors https://play.google.com"
+  }
+}
