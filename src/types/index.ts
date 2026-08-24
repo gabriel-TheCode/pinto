@@ -17,7 +17,9 @@ export type Continent =
   | 'Europe'
   | 'North America'
   | 'South America'
-  | 'Oceania';
+  | 'Oceania'
+  /** Regions Pinto cannot name — never guessed into a real continent. */
+  | 'Other';
 
 export interface Country {
   code: RegionCode;

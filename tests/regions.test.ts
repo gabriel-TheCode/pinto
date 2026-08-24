@@ -31,6 +31,23 @@ describe('country table', () => {
     expect(countryOrPlaceholder('ZZ')).toMatchObject({ code: 'ZZ', name: 'ZZ' });
   });
 
+  it('never files an unknown region under a real continent', () => {
+    // This defaulted to Europe once, which swept unrecognised markets into a
+    // Europe selection and let them be repriced on a placeholder.
+    expect(countryOrPlaceholder('ZZ').continent).toBe('Other');
+    expect(filterCountries([countryOrPlaceholder('ZZ')], { continents: ['Europe'] })).toEqual([]);
+  });
+
+  it('names the small territories Play can return, rather than showing bare codes', () => {
+    // A 140-row table full of "VU" and "SM" is unreadable; these are real
+    // region codes the API hands back.
+    for (const code of ['SM', 'SL', 'VU', 'VA', 'VG', 'SO', 'GI', 'PR', 'MO']) {
+      const country = getCountry(code);
+      expect(country, code).toBeDefined();
+      expect(country!.name, code).not.toBe(code);
+    }
+  });
+
   it('lists subregions per continent', () => {
     expect(subregionsOf('Europe')).toContain('Western Europe');
   });

@@ -47,33 +47,39 @@ export const ECONOMIC_BANDS: EconomicBand[] = [
     label: 'T1 · Premium',
     blurb: 'High income, high app spend',
     members: codes(`AE AT AU BE BH BM BN CA CH DE DK FI FR GB HK IE IL IS JP KR KW KY
-                    LI LU NL NO NZ QA SE SG TW US`),
+                    LI LU NL NO NZ QA SE SG TW US
+                    AD AX BL FO GF GG GI GL GP GU IM JE MC MF MO MP MQ NC PF PM PR
+                    RE SM VA VI YT`),
   },
   {
     id: 'T2',
     label: 'T2 · Established',
     blurb: 'High income, softer app spend',
-    members: codes(`AG BB BS CL CY CZ EE ES GR HR IT LT LV MT OM PA PL PT SA SI SK TT UY`),
+    members: codes(`AG BB BS CL CY CZ EE ES GR HR IT LT LV MT OM PA PL PT SA SI SK TT UY
+                    AI AS AW BQ CK CW FK KN SC SX TC VG WF`),
   },
   {
     id: 'T3',
     label: 'T3 · Upper-mid',
     blurb: 'Upper-middle income',
     members: codes(`AL AM AR AZ BA BG BR BW BY CG CN CR DO GA GE HU IQ JM JO KZ LB LY
-                    ME MK MU MX MY NA RO RS RU TH TR ZA`),
+                    ME MK MU MX MY NA RO RS RU TH TR ZA
+                    DM GD GQ LC MS NR PW VC XK`),
   },
   {
     id: 'T4',
     label: 'T4 · Lower-mid',
     blurb: 'Lower-middle income',
     members: codes(`AO BO BT BZ CI CM CO DZ EC EG FJ GH GT GY HN HT ID KE KG LK MA MD
-                    MN MV NG NI PE PG PH PS PY SN SR SV TJ TM TN UA UZ VE VN ZM ZW`),
+                    MN MV NG NI PE PG PH PS PY SN SR SV TJ TM TN UA UZ VE VN ZM ZW
+                    CV DJ FM LS MR SB SZ TL TO TV VU WS`),
   },
   {
     id: 'T5',
     label: 'T5 · Volume',
     blurb: 'Low income, price-sensitive, high volume',
-    members: codes(`AF BD BF BJ CD ET GN IN KH LA MG ML MM MW MZ NE NP PK RW TD TG TZ UG YE`),
+    members: codes(`AF BD BF BJ CD ET GN IN KH LA MG ML MM MW MZ NE NP PK RW TD TG TZ UG YE
+                    BI CF ER GM GW KI KM LR SL SO SS ST`),
   },
 ];
 

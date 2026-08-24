@@ -1,14 +1,22 @@
 import type { Continent, Country, RegionCode } from '@/types';
 
 /**
- * Countries/regions Google Play sells in.
+ * A lookup table for naming and grouping regions — **not** a claim about where
+ * Google Play sells.
  *
- * `defaultCurrency` is a **display hint only**. The currency a product is
- * actually billed in for a region is decided by Google Play and is read back
- * from the API; Pinto always prefers the API value and only falls back to this
- * table when a region has no price configured yet. Several markets here bill
- * in USD on Play even though they have their own national currency, so treating
- * this table as authoritative would be wrong.
+ * Which regions exist for a product comes from the API and nothing else: rows
+ * in the pricing table are built from the product's own regional configs, and
+ * the tier generator is restricted to those. So a country listed here that Play
+ * does not sell in (or has since dropped) is inert — it never appears, and it
+ * can never be priced. The table being generous costs nothing; being short
+ * costs a lot, because an unlisted region degrades to a bare code like "VU" in
+ * a table of 140 rows, which is unreadable.
+ *
+ * `defaultCurrency` is likewise a **display hint only**. The currency a product
+ * is actually billed in for a region is decided by Google Play and read back
+ * from the API; Pinto always prefers the API value and falls back here only
+ * when a region has no price configured yet. Several markets bill in USD on
+ * Play despite having their own national currency.
  */
 type Row = readonly [RegionCode, string, string, Continent, string];
 
@@ -59,6 +67,18 @@ const ROWS: readonly Row[] = [
   ['SK', 'Slovakia', 'EUR', 'Europe', 'Eastern Europe'],
   ['TR', 'Türkiye', 'TRY', 'Europe', 'Southern Europe'],
   ['UA', 'Ukraine', 'UAH', 'Europe', 'Eastern Europe'],
+  ['AD', 'Andorra', 'EUR', 'Europe', 'Southern Europe'],
+  ['AX', 'Åland Islands', 'EUR', 'Europe', 'Northern Europe'],
+  ['FO', 'Faroe Islands', 'DKK', 'Europe', 'Northern Europe'],
+  ['GG', 'Guernsey', 'GBP', 'Europe', 'Northern Europe'],
+  ['GI', 'Gibraltar', 'GBP', 'Europe', 'Southern Europe'],
+  ['GL', 'Greenland', 'DKK', 'Europe', 'Northern Europe'],
+  ['IM', 'Isle of Man', 'GBP', 'Europe', 'Northern Europe'],
+  ['JE', 'Jersey', 'GBP', 'Europe', 'Northern Europe'],
+  ['MC', 'Monaco', 'EUR', 'Europe', 'Western Europe'],
+  ['SM', 'San Marino', 'EUR', 'Europe', 'Southern Europe'],
+  ['VA', 'Vatican City', 'EUR', 'Europe', 'Southern Europe'],
+  ['XK', 'Kosovo', 'EUR', 'Europe', 'Southern Europe'],
 
   // --- North America --------------------------------------------------------
   ['BM', 'Bermuda', 'USD', 'North America', 'Northern America'],
@@ -80,6 +100,26 @@ const ROWS: readonly Row[] = [
   ['JM', 'Jamaica', 'USD', 'North America', 'Caribbean'],
   ['KY', 'Cayman Islands', 'USD', 'North America', 'Caribbean'],
   ['TT', 'Trinidad & Tobago', 'USD', 'North America', 'Caribbean'],
+  ['AI', 'Anguilla', 'USD', 'North America', 'Caribbean'],
+  ['AW', 'Aruba', 'USD', 'North America', 'Caribbean'],
+  ['BL', 'St Barthélemy', 'EUR', 'North America', 'Caribbean'],
+  ['BQ', 'Caribbean Netherlands', 'USD', 'North America', 'Caribbean'],
+  ['CW', 'Curaçao', 'USD', 'North America', 'Caribbean'],
+  ['DM', 'Dominica', 'USD', 'North America', 'Caribbean'],
+  ['GD', 'Grenada', 'USD', 'North America', 'Caribbean'],
+  ['GP', 'Guadeloupe', 'EUR', 'North America', 'Caribbean'],
+  ['KN', 'St Kitts & Nevis', 'USD', 'North America', 'Caribbean'],
+  ['LC', 'St Lucia', 'USD', 'North America', 'Caribbean'],
+  ['MF', 'St Martin', 'EUR', 'North America', 'Caribbean'],
+  ['MQ', 'Martinique', 'EUR', 'North America', 'Caribbean'],
+  ['MS', 'Montserrat', 'USD', 'North America', 'Caribbean'],
+  ['PM', 'St Pierre & Miquelon', 'EUR', 'North America', 'Northern America'],
+  ['PR', 'Puerto Rico', 'USD', 'North America', 'Caribbean'],
+  ['SX', 'Sint Maarten', 'USD', 'North America', 'Caribbean'],
+  ['TC', 'Turks & Caicos Islands', 'USD', 'North America', 'Caribbean'],
+  ['VC', 'St Vincent & Grenadines', 'USD', 'North America', 'Caribbean'],
+  ['VG', 'British Virgin Islands', 'USD', 'North America', 'Caribbean'],
+  ['VI', 'U.S. Virgin Islands', 'USD', 'North America', 'Caribbean'],
 
   // --- South America --------------------------------------------------------
   ['AR', 'Argentina', 'ARS', 'South America', 'South America'],
@@ -94,6 +134,8 @@ const ROWS: readonly Row[] = [
   ['SR', 'Suriname', 'USD', 'South America', 'South America'],
   ['UY', 'Uruguay', 'UYU', 'South America', 'South America'],
   ['VE', 'Venezuela', 'USD', 'South America', 'South America'],
+  ['FK', 'Falkland Islands', 'GBP', 'South America', 'South America'],
+  ['GF', 'French Guiana', 'EUR', 'South America', 'South America'],
 
   // --- Asia -----------------------------------------------------------------
   ['AE', 'United Arab Emirates', 'AED', 'Asia', 'Western Asia'],
@@ -137,6 +179,8 @@ const ROWS: readonly Row[] = [
   ['KR', 'South Korea', 'KRW', 'Asia', 'East Asia'],
   ['MN', 'Mongolia', 'USD', 'Asia', 'East Asia'],
   ['TW', 'Taiwan', 'TWD', 'Asia', 'East Asia'],
+  ['MO', 'Macao', 'USD', 'Asia', 'East Asia'],
+  ['TL', 'Timor-Leste', 'USD', 'Asia', 'Southeast Asia'],
 
   // --- Africa ---------------------------------------------------------------
   ['DZ', 'Algeria', 'DZD', 'Africa', 'North Africa'],
@@ -174,12 +218,48 @@ const ROWS: readonly Row[] = [
   ['RW', 'Rwanda', 'RWF', 'Africa', 'East Africa'],
   ['TZ', 'Tanzania', 'TZS', 'Africa', 'East Africa'],
   ['UG', 'Uganda', 'UGX', 'Africa', 'East Africa'],
+  ['BI', 'Burundi', 'USD', 'Africa', 'East Africa'],
+  ['CF', 'Central African Republic', 'XAF', 'Africa', 'Central Africa'],
+  ['CV', 'Cape Verde', 'USD', 'Africa', 'West Africa'],
+  ['DJ', 'Djibouti', 'USD', 'Africa', 'East Africa'],
+  ['ER', 'Eritrea', 'USD', 'Africa', 'East Africa'],
+  ['GM', 'Gambia', 'USD', 'Africa', 'West Africa'],
+  ['GQ', 'Equatorial Guinea', 'XAF', 'Africa', 'Central Africa'],
+  ['GW', 'Guinea-Bissau', 'XOF', 'Africa', 'West Africa'],
+  ['KM', 'Comoros', 'USD', 'Africa', 'East Africa'],
+  ['LR', 'Liberia', 'USD', 'Africa', 'West Africa'],
+  ['LS', 'Lesotho', 'USD', 'Africa', 'Southern Africa'],
+  ['MR', 'Mauritania', 'USD', 'Africa', 'West Africa'],
+  ['RE', 'Réunion', 'EUR', 'Africa', 'East Africa'],
+  ['SC', 'Seychelles', 'USD', 'Africa', 'East Africa'],
+  ['SL', 'Sierra Leone', 'USD', 'Africa', 'West Africa'],
+  ['SO', 'Somalia', 'USD', 'Africa', 'East Africa'],
+  ['SS', 'South Sudan', 'USD', 'Africa', 'East Africa'],
+  ['ST', 'São Tomé & Príncipe', 'USD', 'Africa', 'Central Africa'],
+  ['SZ', 'Eswatini', 'USD', 'Africa', 'Southern Africa'],
+  ['YT', 'Mayotte', 'EUR', 'Africa', 'East Africa'],
 
   // --- Oceania --------------------------------------------------------------
   ['AU', 'Australia', 'AUD', 'Oceania', 'Australasia'],
   ['FJ', 'Fiji', 'USD', 'Oceania', 'Pacific Islands'],
   ['NZ', 'New Zealand', 'NZD', 'Oceania', 'Australasia'],
   ['PG', 'Papua New Guinea', 'USD', 'Oceania', 'Pacific Islands'],
+  ['AS', 'American Samoa', 'USD', 'Oceania', 'Pacific Islands'],
+  ['CK', 'Cook Islands', 'NZD', 'Oceania', 'Pacific Islands'],
+  ['FM', 'Micronesia', 'USD', 'Oceania', 'Pacific Islands'],
+  ['GU', 'Guam', 'USD', 'Oceania', 'Pacific Islands'],
+  ['KI', 'Kiribati', 'USD', 'Oceania', 'Pacific Islands'],
+  ['MP', 'Northern Mariana Islands', 'USD', 'Oceania', 'Pacific Islands'],
+  ['NC', 'New Caledonia', 'USD', 'Oceania', 'Pacific Islands'],
+  ['NR', 'Nauru', 'USD', 'Oceania', 'Pacific Islands'],
+  ['PF', 'French Polynesia', 'USD', 'Oceania', 'Pacific Islands'],
+  ['PW', 'Palau', 'USD', 'Oceania', 'Pacific Islands'],
+  ['SB', 'Solomon Islands', 'USD', 'Oceania', 'Pacific Islands'],
+  ['TO', 'Tonga', 'USD', 'Oceania', 'Pacific Islands'],
+  ['TV', 'Tuvalu', 'USD', 'Oceania', 'Pacific Islands'],
+  ['VU', 'Vanuatu', 'USD', 'Oceania', 'Pacific Islands'],
+  ['WF', 'Wallis & Futuna', 'USD', 'Oceania', 'Pacific Islands'],
+  ['WS', 'Samoa', 'USD', 'Oceania', 'Pacific Islands'],
 ];
 
 export const COUNTRIES: Country[] = ROWS.map(
@@ -198,14 +278,22 @@ export function getCountry(code: RegionCode): Country | undefined {
   return BY_CODE.get(code);
 }
 
-/** Unknown region codes still need a row in the table, so synthesise one. */
+/**
+ * Unknown region codes still need a row in the table, so synthesise one.
+ *
+ * The continent is `Other`, not a guess. This used to default to Europe, which
+ * quietly filed any region Pinto did not recognise under the Europe filter — so
+ * a market could be swept into a "Europe" selection and repriced on the
+ * strength of a placeholder. A region Pinto cannot name is one it must not
+ * pretend to place.
+ */
 export function countryOrPlaceholder(code: RegionCode): Country {
   return (
     BY_CODE.get(code) ?? {
       code,
       name: code,
       defaultCurrency: 'USD',
-      continent: 'Europe',
+      continent: 'Other',
       subregion: 'Unknown',
     }
   );
