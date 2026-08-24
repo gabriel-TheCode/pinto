@@ -209,11 +209,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handle(request, sender)
     .then((data) => sendResponse({ ok: true, data } satisfies Response))
     .catch((error) => {
-      log.error('router', `${request.type} failed`, error);
-      sendResponse({ ok: false, error: toPayload(error) } satisfies Response);
+      const payload = toPayload(error);
+      // Closing the sign-in window is a decision, not a fault. Logging it at
+      // error level put a red badge on the extension card in chrome://extensions,
+      // which reads as a crash — and an error badge that fires on normal use
+      // stops meaning anything.
+      if (EXPECTED_OUTCOMES.has(payload.code)) {
+        log.info('router', `${request.type} ended early: ${payload.code}`);
+      } else {
+        log.error('router', `${request.type} failed`, error);
+      }
+      sendResponse({ ok: false, error: payload } satisfies Response);
     });
   return true; // keep the message channel open for the async response
 });
+
+/** Outcomes that are part of normal use, not failures to alert on. */
+const EXPECTED_OUTCOMES = new Set(['auth/cancelled', 'auth/silent-failed']);
 
 const REQUEST_PREFIXES = [
   'auth/',

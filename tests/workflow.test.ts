@@ -339,3 +339,44 @@ describe('error handling', () => {
     expect(useStore.getState().error?.code).toBe('runtime/disconnected');
   });
 });
+
+describe('a cancelled sign-in is not a failure', () => {
+  it('leaves the panel on the sign-in screen without an error banner', async () => {
+    const { useStore } = await import('@/app/store');
+    chrome.runtime.sendMessage = vi.fn(async (message: unknown) => {
+      if ((message as Request).type === 'auth/signIn') {
+        return {
+          ok: false,
+          error: {
+            code: 'auth/cancelled',
+            message: 'Sign-in did not complete.',
+            retryable: true,
+          },
+        };
+      }
+      return { ok: true, data: respond(message as Request) };
+    }) as unknown as typeof chrome.runtime.sendMessage;
+
+    await useStore.getState().signIn();
+
+    // Closing the Google window is a decision, not something to alarm about.
+    expect(useStore.getState().error).toBeNull();
+    expect(useStore.getState().auth?.signedIn).toBeFalsy();
+  });
+
+  it('still surfaces a genuine sign-in failure', async () => {
+    const { useStore } = await import('@/app/store');
+    chrome.runtime.sendMessage = vi.fn(async (message: unknown) => {
+      if ((message as Request).type === 'auth/signIn') {
+        return {
+          ok: false,
+          error: { code: 'auth/denied', message: 'Google did not grant access.', retryable: false },
+        };
+      }
+      return { ok: true, data: respond(message as Request) };
+    }) as unknown as typeof chrome.runtime.sendMessage;
+
+    await useStore.getState().signIn();
+    expect(useStore.getState().error?.code).toBe('auth/denied');
+  });
+});

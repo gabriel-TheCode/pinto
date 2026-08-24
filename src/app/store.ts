@@ -185,7 +185,11 @@ export const useStore = create<State>((set, get) => ({
       set({ auth, error: null });
       if (get().context?.packageName) await get().loadProducts();
     } catch (error) {
-      set({ error: asPayload(error) });
+      const payload = asPayload(error);
+      // Backing out of the Google window returns you to the sign-in screen;
+      // it does not deserve a red panel telling you something went wrong.
+      if (payload.code === 'auth/cancelled') return;
+      set({ error: payload });
     }
   },
 

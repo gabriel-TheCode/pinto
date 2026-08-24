@@ -143,8 +143,14 @@ function launch(url: string, interactive: boolean): Promise<string> {
           new PintoError({
             code: interactive ? 'auth/cancelled' : 'auth/silent-failed',
             message: interactive
-              ? 'Sign-in was cancelled.'
+              ? 'Sign-in did not complete.'
               : 'Could not refresh the session silently.',
+            // Chrome reports a closed window and a Google error page the same
+            // way, so the likeliest non-obvious cause is named here rather
+            // than leaving "cancelled" to look like the user's own doing.
+            hint: interactive
+              ? 'If you closed the window, just try again. If Google showed an error instead, the redirect URI on your OAuth client probably does not match the one below.'
+              : undefined,
             detail: error?.message,
             retryable: true,
           }),
