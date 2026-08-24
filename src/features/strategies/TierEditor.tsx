@@ -6,14 +6,16 @@ import { Toggle, Label, Hint } from '@/components/Field';
 import { countryOrPlaceholder } from '@/domain/regions/countries';
 import { builtInGroups } from '@/domain/regions/groups';
 import { BaseMarketSelect } from './BaseMarketSelect';
+import { LadderGenerator } from './LadderGenerator';
 
 /**
  * Relative regional pricing, made explicit.
  *
- * Pinto ships no opinion about which countries belong in which tier. The tiers
- * start empty and the user assigns markets to them, because a built-in
- * "emerging markets get 40%" table would be an economic judgement dressed up
- * as a default — and the developer, not the tool, is the one answerable for it.
+ * Pricing by economic zone is the thing Play Console cannot do — it applies one
+ * price everywhere or makes you edit 150 countries by hand — so Pinto generates
+ * the ladder for you. What it does not do is decide silently: the generator is
+ * something the user asks for, every share and every country stays editable
+ * afterwards, and nothing reaches Google without passing through Review.
  */
 function untieredSelected(tiered: RegionCode[], selection: Set<RegionCode>): number {
   return tiered.filter((region) => !selection.has(region)).length;
@@ -110,6 +112,13 @@ export function TierEditor({
 
   return (
     <>
+      <LadderGenerator
+        strategy={strategy}
+        regions={regions}
+        onChange={onChange}
+        onGenerated={() => setExpanded(null)}
+      />
+
       <BaseMarketSelect
         label="Base market"
         value={strategy.baseRegion}

@@ -12,7 +12,8 @@ Pinto lives inside Play Console. Open a subscription, one-time product or pricin
 
 - **Select markets** by search, continent, sub-region, currency, or one at a time.
 - **Apply a strategy** — percentage, multiplier, fixed price, copy-from-market, user-defined tiers, or a formula.
-- **Build a price ladder** by dropping whole continents or sub-regions into tiers you define — "Western Europe at 100%, North Africa at 80%, West Africa at 40%" is three clicks.
+- **Price by economic zone in one click** — generate a purchasing-power ladder across five bands, pick how steep it is, and edit any share or country before applying.
+- **Build a price ladder by hand** by dropping whole continents, sub-regions or your own saved groups into tiers you define.
 - **Round** to charm endings, your own endings, whole units, or not at all.
 - **Review every row** before applying: current price, new price, change, and any warning attached to it.
 - **Apply**, then see what Google Play actually accepted — including which countries it rejected and why.
@@ -156,6 +157,20 @@ src/
 
 **Panel** (`src/panel/`, `src/app/`, `src/features/`) — a view over the worker's state. It never touches `chrome.runtime` directly; the typed `send()` client does.
 
+### Pricing by economic zone
+
+This is the reason the extension exists. Play Console can set one price for every country, or make you edit them one at a time; it has no concept of "charge less where people earn less". Pinto generates that ladder.
+
+`src/domain/regions/economicBands.ts` groups every supported country into five purchasing-power bands, and `generateLadder()` turns a band table plus a steepness curve into a tier strategy. The basis is stated in the file and in the UI: World Bank income groups and GNI per capita at PPP, adjusted for observed app-store spend — a defensible starting point, not a measurement, and one that ages.
+
+Shipping that table is a judgement, so it comes with hard constraints rather than a disclaimer:
+
+- **Never automatic.** The user picks Tiers, sees the bands, and can regenerate at a different steepness or start from `Flat` — the same price everywhere — and open the gaps by hand.
+- **Never opaque.** Every band shows its share, its country count and, on click, the full list. The resulting price per band is previewed before generating.
+- **Never final.** Shares are editable numbers; countries can be moved between bands or removed entirely; and nothing reaches Google without passing through Review.
+
+The generated presets in `presets/` are built from the same module, so what ships and what the extension produces cannot drift apart.
+
 ### Two decisions worth explaining
 
 **Currency conversion without an FX service.** "Set European markets to €4.99 equivalent" needs exchange rates. Calling a rates API would mean sending pricing context to a third party and producing numbers that disagree with Google's own conversion. Instead, Pinto derives rates from the product's *own existing prices*: if US is $4.99 and Brazil is R$24.90, then for this product 1 USD implies 4.99 BRL. Rates are local, consistent with the pricing Google generated, and shown per row. A market with no existing price has no implied rate, and Pinto flags that row rather than inventing one.
@@ -174,7 +189,7 @@ npm test
 npm run typecheck
 ```
 
-165 tests across three levels:
+273 tests across three levels:
 
 - **Unit** — micros/`Money` round-trips and currency granularity, rounding (including the invariant that rounding never moves a price by more than one unit), the formula parser and its sandbox, implied FX derivation, region filtering, preset schema validation.
 - **Integration** — `computeChangeSet` across every strategy; the full panel state machine from boot through selection, strategy, review and apply, asserting that what the review screen showed is exactly what gets sent; the apply engine's bisect isolation, dry run, undo and unrecoverable-error paths against a fake Play that behaves like the real all-or-nothing endpoint.

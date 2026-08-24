@@ -8,6 +8,7 @@ import { Badge } from '@/components/Feedback';
 import { cx } from '@/lib/cx';
 import { MICROS_PER_UNIT, formatMicros, unitsToMicros } from '@/domain/money/money';
 import { validateFormula } from '@/domain/formula/parser';
+import { generateLadder } from '@/domain/regions/economicBands';
 import { TierEditor } from './TierEditor';
 import { RoundingEditor } from './RoundingEditor';
 
@@ -43,7 +44,7 @@ export function StrategyScreen() {
               <button
                 key={kind.id}
                 type="button"
-                onClick={() => setStrategy(defaultFor(kind.id, regions[0] ?? 'US'))}
+                onClick={() => setStrategy(defaultFor(kind.id, regions[0] ?? 'US', regions))}
                 title={kind.blurb}
                 className={cx(
                   'rounded-lg border px-2 py-2 text-left transition-colors',
@@ -298,7 +299,11 @@ function StrategyFields({
   }
 }
 
-function defaultFor(kind: StrategyKind, region: RegionCode): Strategy {
+function defaultFor(
+  kind: StrategyKind,
+  region: RegionCode,
+  regions: RegionCode[] = [],
+): Strategy {
   switch (kind) {
     case 'percentage':
       return { kind: 'percentage', percent: 10 };
@@ -309,13 +314,11 @@ function defaultFor(kind: StrategyKind, region: RegionCode): Strategy {
     case 'copy':
       return { kind: 'copy', fromRegion: region, convert: true };
     case 'tiers':
-      return {
-        kind: 'tiers',
-        baseRegion: region,
-        tiers: { 'Tier A': 1, 'Tier B': 0.8, 'Tier C': 0.6, 'Tier D': 0.4 },
-        assignment: {},
-        convert: true,
-      };
+      // Start from a real purchasing-power ladder rather than four empty
+      // bands: pricing by economic zone is what people open this screen for,
+      // and an empty grid makes them do by hand the one job Play Console
+      // already refuses to do. Every share and country is editable from here.
+      return generateLadder({ curve: 'balanced', baseRegion: region, restrictTo: regions });
     case 'formula':
       return { kind: 'formula', expression: 'current * 1.1', baseRegion: region };
     default:

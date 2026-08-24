@@ -1,14 +1,10 @@
 /**
- * The purchasing-power tier table, shared by the preset generators.
+ * Preset-generator helpers.
  *
- * It lives in `scripts/`, never in `src/`. Pinto itself ships no economic
- * classification of countries: this is a judgement about markets, it ages, and
- * it must never quietly become the default that prices someone's product. As a
- * generated preset it is the opposite — opt-in, visible in the Tiers editor,
- * and editable country by country before anything is written.
- *
- * Basis: World Bank income groupings and GNI per capita at PPP, adjusted for
- * observed app-store spend. A starting point to argue with, not a measurement.
+ * The band table itself lives in `src/domain/regions/economicBands.ts` — inside
+ * the product, where the user can generate and edit a ladder directly. This
+ * script parses it rather than keeping a second copy, so the presets shipped in
+ * `presets/` can never drift from what the extension produces.
  */
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -16,16 +12,23 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-export const BANDS = {
-  'T1 · Premium': `AE AT AU BE BH BM BN CA CH DE DK FI FR GB HK IE IL IS JP KR KW KY
-                   LI LU NL NO NZ QA SE SG TW US`,
-  'T2 · Established': `AG BB BS CL CY CZ EE ES GR HR IT LT LV MT OM PA PL PT SA SI SK TT UY`,
-  'T3 · Upper-mid': `AL AM AR AZ BA BG BR BW BY CG CN CR DO GA GE HU IQ JM JO KZ LB LY
-                     ME MK MU MX MY NA RO RS RU TH TR ZA`,
-  'T4 · Lower-mid': `AO BO BT BZ CI CM CO DZ EC EG FJ GH GT GY HN HT ID KE KG LK MA MD
-                     MN MV NG NI PE PG PH PS PY SN SR SV TJ TM TN UA UZ VE VN ZM ZW`,
-  'T5 · Volume': `AF BD BF BJ CD ET GN IN KH LA MG ML MM MW MZ NE NP PK RW TD TG TZ UG YE`,
-};
+/** Reads the band definitions out of the domain module (single source of truth). */
+function readBands() {
+  const source = readFileSync(resolve(ROOT, 'src/domain/regions/economicBands.ts'), 'utf8');
+  const bands = {};
+  // Each band is `label: '...', blurb: '...', members: codes(`AA BB ...`)`.
+  for (const match of source.matchAll(
+    /label:\s*'([^']+)'[\s\S]*?members:\s*codes\(`([^`]+)`\)/g,
+  )) {
+    bands[match[1]] = match[2];
+  }
+  if (Object.keys(bands).length < 5) {
+    throw new Error(`only parsed ${Object.keys(bands).length} bands — economicBands.ts changed`);
+  }
+  return bands;
+}
+
+export const BANDS = readBands();
 
 /** Region codes Pinto knows about, read from the country table itself. */
 export function knownCountries() {

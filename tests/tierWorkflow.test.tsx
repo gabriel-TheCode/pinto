@@ -13,14 +13,19 @@ import type { Request } from '@/services/messages';
  * screen to hand-pick countries for each band.
  */
 
+// Spans all five economic bands as well as several sub-regions, so both the
+// geographic grouping and the generated ladder have something to work with.
 const PRICES = [
-  ['FR', 'EUR', 4.99], // Western Europe
-  ['DE', 'EUR', 4.99], // Western Europe
-  ['MA', 'MAD', 49], // North Africa
-  ['DZ', 'DZD', 400], // North Africa
-  ['NG', 'NGN', 2500], // West Africa
-  ['KE', 'KES', 500], // East Africa
-  ['US', 'USD', 4.99], // Northern America
+  ['FR', 'EUR', 4.99], // Western Europe · T1
+  ['DE', 'EUR', 4.99], // Western Europe · T1
+  ['US', 'USD', 4.99], // Northern America · T1
+  ['PL', 'USD', 4.99], // Eastern Europe · T2
+  ['BR', 'USD', 4.99], // South America · T3
+  ['MA', 'MAD', 49], // North Africa · T4
+  ['DZ', 'DZD', 400], // North Africa · T4
+  ['NG', 'NGN', 2500], // West Africa · T4
+  ['KE', 'KES', 500], // East Africa · T4
+  ['IN', 'USD', 4.99], // South Asia · T5
 ] as const;
 
 function respond(request: Request): unknown {
@@ -94,6 +99,19 @@ function tierRow(name: string): HTMLElement {
   return screen.getByText(name).closest('div.flex-col')!;
 }
 
+/**
+ * Empties every band. Choosing Tiers now lands on a generated purchasing-power
+ * ladder, so tests about manual assignment start by clearing it — otherwise
+ * they would be asserting against the generator's output rather than their own.
+ */
+async function clearAllTiers(user: ReturnType<typeof userEvent.setup>) {
+  for (;;) {
+    const buttons = screen.queryAllByTitle(/^Unassign every market from/);
+    if (!buttons.length) return;
+    await user.click(buttons[0]!);
+  }
+}
+
 describe('sub-region filter chips', () => {
   it('reveals sub-regions once a continent is picked', async () => {
     const user = userEvent.setup();
@@ -149,6 +167,7 @@ describe('assigning tiers by region', () => {
   async function openTiers(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByText('Strategy'));
     await user.click(await screen.findByText('Tiers'));
+    await clearAllTiers(user);
   }
 
   it('assigns a whole sub-region to a tier in one step', async () => {
@@ -156,13 +175,13 @@ describe('assigning tiers by region', () => {
     await renderApp();
     await openTiers(user);
 
-    const tierB = tierRow('Tier B');
+    const tierB = tierRow('T2 · Established');
     await user.selectOptions(
-      within(tierB).getByLabelText('Add a region to Tier B'),
+      within(tierB).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
 
-    expect(within(tierRow('Tier B')).getByText(/2 markets/)).toBeTruthy();
+    expect(within(tierRow('T2 · Established')).getByText(/2 markets/)).toBeTruthy();
   });
 
   it('builds a full Europe / Maghreb / sub-Saharan ladder without touching the country list', async () => {
@@ -171,25 +190,26 @@ describe('assigning tiers by region', () => {
     await openTiers(user);
 
     await user.selectOptions(
-      within(tierRow('Tier A')).getByLabelText('Add a region to Tier A'),
+      within(tierRow('T1 · Premium')).getByLabelText('Add a region to T1 · Premium'),
       'continent:Europe',
     );
     await user.selectOptions(
-      within(tierRow('Tier B')).getByLabelText('Add a region to Tier B'),
+      within(tierRow('T2 · Established')).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
     await user.selectOptions(
-      within(tierRow('Tier D')).getByLabelText('Add a region to Tier D'),
+      within(tierRow('T4 · Lower-mid')).getByLabelText('Add a region to T4 · Lower-mid'),
       'subregion:West Africa',
     );
     await user.selectOptions(
-      within(tierRow('Tier D')).getByLabelText('Add a region to Tier D'),
+      within(tierRow('T4 · Lower-mid')).getByLabelText('Add a region to T4 · Lower-mid'),
       'subregion:East Africa',
     );
 
-    expect(within(tierRow('Tier A')).getByText(/2 markets/)).toBeTruthy();
-    expect(within(tierRow('Tier B')).getByText(/2 markets/)).toBeTruthy();
-    expect(within(tierRow('Tier D')).getByText(/2 markets/)).toBeTruthy();
+    // Europe now spans FR, DE and PL.
+    expect(within(tierRow('T1 · Premium')).getByText(/3 markets/)).toBeTruthy();
+    expect(within(tierRow('T2 · Established')).getByText(/2 markets/)).toBeTruthy();
+    expect(within(tierRow('T4 · Lower-mid')).getByText(/2 markets/)).toBeTruthy();
   });
 
   it('lets a later assignment move a market between tiers', async () => {
@@ -198,18 +218,18 @@ describe('assigning tiers by region', () => {
     await openTiers(user);
 
     await user.selectOptions(
-      within(tierRow('Tier D')).getByLabelText('Add a region to Tier D'),
+      within(tierRow('T4 · Lower-mid')).getByLabelText('Add a region to T4 · Lower-mid'),
       'continent:Africa',
     );
-    expect(within(tierRow('Tier D')).getByText(/4 markets/)).toBeTruthy();
+    expect(within(tierRow('T4 · Lower-mid')).getByText(/4 markets/)).toBeTruthy();
 
     await user.selectOptions(
-      within(tierRow('Tier B')).getByLabelText('Add a region to Tier B'),
+      within(tierRow('T2 · Established')).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
 
-    expect(within(tierRow('Tier B')).getByText(/2 markets/)).toBeTruthy();
-    expect(within(tierRow('Tier D')).getByText(/2 markets/)).toBeTruthy();
+    expect(within(tierRow('T2 · Established')).getByText(/2 markets/)).toBeTruthy();
+    expect(within(tierRow('T4 · Lower-mid')).getByText(/2 markets/)).toBeTruthy();
   });
 
   it('only offers regions this product actually prices', async () => {
@@ -217,11 +237,12 @@ describe('assigning tiers by region', () => {
     await renderApp();
     await openTiers(user);
 
-    const select = within(tierRow('Tier A')).getByLabelText('Add a region to Tier A');
+    const select = within(tierRow('T1 · Premium')).getByLabelText('Add a region to T1 · Premium');
     const labels = within(select).getAllByRole('option').map((option) => option.textContent);
 
     expect(labels).toContain('North Africa (2)');
-    expect(labels.some((label) => label?.startsWith('South Asia'))).toBe(false);
+    // The product prices nothing in East Asia, so it is not offered at all.
+    expect(labels.some((label) => label?.startsWith('East Asia'))).toBe(false);
   });
 
   it('clears a tier without disturbing the others', async () => {
@@ -230,17 +251,84 @@ describe('assigning tiers by region', () => {
     await openTiers(user);
 
     await user.selectOptions(
-      within(tierRow('Tier A')).getByLabelText('Add a region to Tier A'),
+      within(tierRow('T1 · Premium')).getByLabelText('Add a region to T1 · Premium'),
       'continent:Europe',
     );
     await user.selectOptions(
-      within(tierRow('Tier B')).getByLabelText('Add a region to Tier B'),
+      within(tierRow('T2 · Established')).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
-    await user.click(within(tierRow('Tier A')).getByTitle('Unassign every market from Tier A'));
+    await user.click(within(tierRow('T1 · Premium')).getByTitle('Unassign every market from T1 · Premium'));
 
-    expect(within(tierRow('Tier A')).getByText(/0 markets/)).toBeTruthy();
-    expect(within(tierRow('Tier B')).getByText(/2 markets/)).toBeTruthy();
+    expect(within(tierRow('T1 · Premium')).getByText(/0 markets/)).toBeTruthy();
+    expect(within(tierRow('T2 · Established')).getByText(/2 markets/)).toBeTruthy();
+  });
+});
+
+describe('generating a purchasing-power ladder from the UI', () => {
+  async function openTiers(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByText('Strategy'));
+    await user.click(await screen.findByText('Tiers'));
+  }
+
+  it('lands on a real ladder rather than empty bands', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await openTiers(user);
+
+    // Choosing Tiers must not hand back a blank grid — the economic ladder is
+    // the job Play Console refuses to do.
+    expect(await screen.findByText(/T1 · Premium/)).toBeTruthy();
+    expect(within(tierRow('T1 · Premium')).getByText(/markets/)).toBeTruthy();
+  });
+
+  it('regenerates with a different steepness on request', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await openTiers(user);
+
+    await user.click(await screen.findByText('Generate'));
+    await user.click(await screen.findByText('Aggressive'));
+    await user.click(screen.getByText('Generate ladder'));
+    // Close the generator so the band labels are unambiguous in the DOM.
+    await user.click(screen.getByText('Close'));
+
+    // Aggressive drops the bottom band to 40%.
+    expect(within(tierRow('T5 · Volume')).getByDisplayValue('40')).toBeTruthy();
+  });
+
+  it('shows the resulting price per band before generating', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await openTiers(user);
+    await user.click(await screen.findByText('Generate'));
+
+    const anchor = screen.getByLabelText('Anchor price');
+    await user.clear(anchor);
+    await user.type(anchor, '10');
+
+    // Balanced: T3 sits at 70% -> 7.00 previewed before anything is applied.
+    expect(await screen.findByText('7.00')).toBeTruthy();
+  });
+
+  it('states the basis instead of presenting the bands as fact', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await openTiers(user);
+    await user.click(await screen.findByText('Generate'));
+
+    expect(screen.getByText(/starting point to edit, not a measurement/i)).toBeTruthy();
+  });
+
+  it('leaves the generated ladder fully editable', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await openTiers(user);
+
+    const share = within(tierRow('T3 · Upper-mid')).getByDisplayValue('70');
+    await user.clear(share);
+    await user.type(share, '55');
+    expect(within(tierRow('T3 · Upper-mid')).getByDisplayValue('55')).toBeTruthy();
   });
 });
 
@@ -248,6 +336,7 @@ describe('seeing what is in a tier', () => {
   async function openTiers(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByText('Strategy'));
     await user.click(await screen.findByText('Tiers'));
+    await clearAllTiers(user);
   }
 
   it('lists the countries behind the count, not just the number', async () => {
@@ -256,12 +345,12 @@ describe('seeing what is in a tier', () => {
     await openTiers(user);
 
     await user.selectOptions(
-      within(tierRow('Tier B')).getByLabelText('Add a region to Tier B'),
+      within(tierRow('T2 · Established')).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
-    await user.click(within(tierRow('Tier B')).getByText(/2 markets/));
+    await user.click(within(tierRow('T2 · Established')).getByText(/2 markets/));
 
-    const members = screen.getByLabelText('Markets in Tier B');
+    const members = screen.getByLabelText('Markets in T2 · Established');
     expect(within(members).getByText('Morocco')).toBeTruthy();
     expect(within(members).getByText('Algeria')).toBeTruthy();
   });
@@ -272,13 +361,13 @@ describe('seeing what is in a tier', () => {
     await openTiers(user);
 
     await user.selectOptions(
-      within(tierRow('Tier B')).getByLabelText('Add a region to Tier B'),
+      within(tierRow('T2 · Established')).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
-    await user.click(within(tierRow('Tier B')).getByText(/2 markets/));
-    await user.click(within(tierRow('Tier B')).getByText(/2 markets/));
+    await user.click(within(tierRow('T2 · Established')).getByText(/2 markets/));
+    await user.click(within(tierRow('T2 · Established')).getByText(/2 markets/));
 
-    expect(screen.queryByLabelText('Markets in Tier B')).toBeNull();
+    expect(screen.queryByLabelText('Markets in T2 · Established')).toBeNull();
   });
 
   it('removes a single country from a tier', async () => {
@@ -287,15 +376,15 @@ describe('seeing what is in a tier', () => {
     await openTiers(user);
 
     await user.selectOptions(
-      within(tierRow('Tier B')).getByLabelText('Add a region to Tier B'),
+      within(tierRow('T2 · Established')).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
-    await user.click(within(tierRow('Tier B')).getByText(/2 markets/));
-    await user.click(screen.getByLabelText('Remove Morocco from Tier B'));
+    await user.click(within(tierRow('T2 · Established')).getByText(/2 markets/));
+    await user.click(screen.getByLabelText('Remove Morocco from T2 · Established'));
 
-    expect(within(tierRow('Tier B')).getByText(/1 markets/)).toBeTruthy();
-    expect(within(screen.getByLabelText('Markets in Tier B')).queryByText('Morocco')).toBeNull();
-    expect(within(screen.getByLabelText('Markets in Tier B')).getByText('Algeria')).toBeTruthy();
+    expect(within(tierRow('T2 · Established')).getByText(/1 markets/)).toBeTruthy();
+    expect(within(screen.getByLabelText('Markets in T2 · Established')).queryByText('Morocco')).toBeNull();
+    expect(within(screen.getByLabelText('Markets in T2 · Established')).getByText('Algeria')).toBeTruthy();
   });
 
   it('cannot be expanded while the tier is empty', async () => {
@@ -303,7 +392,7 @@ describe('seeing what is in a tier', () => {
     await renderApp();
     await openTiers(user);
 
-    const count = within(tierRow('Tier C')).getByText(/0 markets/).closest('button')!;
+    const count = within(tierRow('T3 · Upper-mid')).getByText(/0 markets/).closest('button')!;
     expect(count.disabled).toBe(true);
   });
 });
@@ -317,9 +406,10 @@ describe('tiered but unselected markets', () => {
     await user.click(screen.getByText('Clear'));
     await user.click(screen.getByText('Strategy'));
     await user.click(await screen.findByText('Tiers'));
+    await clearAllTiers(user);
 
     await user.selectOptions(
-      within(tierRow('Tier B')).getByLabelText('Add a region to Tier B'),
+      within(tierRow('T2 · Established')).getByLabelText('Add a region to T2 · Established'),
       'subregion:North Africa',
     );
 

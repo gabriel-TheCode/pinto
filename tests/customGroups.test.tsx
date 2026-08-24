@@ -184,7 +184,7 @@ describe('using a group', () => {
     await user.click(screen.getByText('Strategy'));
     await user.click(await screen.findByText('Tiers'));
 
-    const select = screen.getAllByLabelText(/Add a region to Tier A/)[0]!;
+    const select = screen.getAllByLabelText(/Add a region to T1 · Premium/)[0]!;
     const labels = within(select)
       .getAllByRole('option')
       .map((option) => option.textContent);
@@ -199,10 +199,14 @@ describe('using a group', () => {
 
     await user.click(screen.getByText('Strategy'));
     await user.click(await screen.findByText('Tiers'));
-    await user.selectOptions(screen.getAllByLabelText(/Add a region to Tier D/)[0]!, 'custom:g2');
+    // RO and BG already sit in T3; moving Rich Europe (FR, DE) in takes it to 4.
+    await user.selectOptions(
+      screen.getAllByLabelText(/Add a region to T3 · Upper-mid/)[0]!,
+      'custom:g1',
+    );
 
-    const row = screen.getByText('Tier D').closest('div.flex-col') as HTMLElement;
-    expect(within(row).getByText(/2 markets/)).toBeTruthy();
+    const row = screen.getByText('T3 · Upper-mid').closest('div.flex-col') as HTMLElement;
+    expect(within(row).getByText(/4 markets/)).toBeTruthy();
   });
 });
 
