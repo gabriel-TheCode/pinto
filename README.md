@@ -38,6 +38,22 @@ Nothing in the price-writing path depends on scraping.
 
 ---
 
+## Publishing
+
+[`PUBLISHING.md`](PUBLISHING.md) covers the Chrome Web Store submission end to
+end: the authentication decision that shapes the work, the developer
+registration, the store listing, the per-permission justifications the form
+demands, and the update flow. [`PRIVACY.md`](PRIVACY.md) is the policy the
+submission links to.
+
+```bash
+npm run package
+```
+
+Builds and writes `release/pinto-<version>.zip`, ready to upload.
+
+---
+
 ## Install and run locally
 
 Requires Node 20+ and Chrome 114+.

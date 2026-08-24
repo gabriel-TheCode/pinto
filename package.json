@@ -2,7 +2,7 @@
   "name": "pinto",
   "version": "0.1.0",
   "private": true,
-  "description": "Pinto — bulk pricing for Google Play. Bulk pricing, without the bulk work.",
+  "description": "Pinto \u2014 bulk pricing for Google Play. Bulk pricing, without the bulk work.",
   "type": "module",
   "scripts": {
     "dev": "npm run build && node scripts/dev.mjs",
@@ -14,7 +14,8 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "package": "npm run build && node scripts/package.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",
