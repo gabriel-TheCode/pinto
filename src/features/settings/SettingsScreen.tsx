@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useStore } from '@/app/store';
+import { useStore, useT } from '@/app/store';
+import { LOCALES } from '@/app/i18n';
+import { cx } from '@/lib/cx';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/Field';
 import { send } from '@/services/client';
@@ -7,7 +9,8 @@ import type { LogEntry } from '@/services/messages';
 import { toast } from '@/components/Toast';
 
 export function SettingsScreen() {
-  const { auth, context, setClientId, setPackageName, signOut } = useStore();
+  const { auth, context, setClientId, setPackageName, signOut, locale, setLocale } = useStore();
+  const t = useT();
   const [clientId, setClientIdInput] = useState('');
   const [packageName, setPackageNameInput] = useState(context?.packageName ?? '');
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -20,7 +23,29 @@ export function SettingsScreen() {
 
   return (
     <div className="h-full overflow-y-auto bg-white">
-      <Section title="Account">
+      <Section title={t('settings.language')}>
+        <div className="grid grid-cols-2 gap-2">
+          {LOCALES.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => void setLocale(option.id)}
+              aria-pressed={locale === option.id}
+              className={cx(
+                'rounded-lg border px-2.5 py-2 text-[12.5px] font-medium transition-colors',
+                locale === option.id
+                  ? 'border-accent-500 bg-accent-500 text-white'
+                  : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50',
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-ink-500">{t('settings.languageHint')}</p>
+      </Section>
+
+      <Section title={t('settings.account')}>
         <div className="flex items-center gap-2.5">
           {auth?.picture ? (
             <img src={auth.picture} alt="" className="size-8 rounded-full" />
@@ -47,7 +72,7 @@ export function SettingsScreen() {
         )}
       </Section>
 
-      <Section title="This app">
+      <Section title={t('settings.thisApp')}>
         <TextField
           label="Package name"
           value={packageName}
@@ -80,7 +105,7 @@ export function SettingsScreen() {
         </Button>
       </Section>
 
-      <Section title="What Pinto stores">
+      <Section title={t('settings.storage')}>
         <ul className="flex list-disc flex-col gap-1 pl-4 text-[11.5px] leading-relaxed text-ink-500">
           <li>
             On this machine: your OAuth client ID, presets, operation history with price snapshots,
@@ -97,7 +122,7 @@ export function SettingsScreen() {
         </ul>
       </Section>
 
-      <Section title="Operation log">
+      <Section title={t('settings.log')}>
         <div className="flex gap-2">
           <Button size="sm" onClick={async () => setLog(await send({ type: 'log/list' }))}>
             Load log
@@ -127,7 +152,7 @@ export function SettingsScreen() {
         )}
       </Section>
 
-      <Section title="Keyboard">
+      <Section title={t('settings.keyboard')}>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11.5px] text-ink-500">
           {[
             ['⇧P', 'Open or close Pinto from Play Console'],

@@ -5,7 +5,7 @@ import { parseCustomGroup } from '@/domain/regions/schema';
 import { auth } from '@/services/auth';
 import { log } from '@/services/logger';
 import { PlayApi } from '@/services/playApi';
-import { storage } from '@/services/storage';
+import { storage, type Settings } from '@/services/storage';
 import { parsePlayConsoleUrl } from '@/services/playConsoleUrl';
 import type { ApplyResult, Event, Request, Response } from '@/services/messages';
 import { applyPricing, revertRequest } from './applyEngine';
@@ -168,6 +168,12 @@ async function handle(request: Request, sender: chrome.runtime.MessageSender): P
     case 'presets/delete':
       return storage.deletePreset(request.id);
 
+    case 'settings/get':
+      return storage.getSettings();
+
+    case 'settings/update':
+      return storage.setSettings(request.patch as Partial<Settings>);
+
     case 'groups/list':
       return storage.getGroups();
 
@@ -216,6 +222,7 @@ const REQUEST_PREFIXES = [
   'pricing/',
   'history/',
   'presets/',
+  'settings/',
   'groups/',
   'panel/',
   'log/',

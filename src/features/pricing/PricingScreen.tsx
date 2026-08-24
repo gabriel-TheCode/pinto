@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useChangeSet, useStore } from '@/app/store';
+import { useChangeSet, useStore, useT } from '@/app/store';
 import { CountryRow } from './CountryRow';
 import { FilterBar } from './FilterBar';
 import { ProductPicker } from './ProductPicker';
@@ -25,6 +25,7 @@ export function PricingScreen() {
     setScreen,
     selectProduct,
   } = useStore();
+  const t = useT();
   const changeSet = useChangeSet();
 
   const currencies = useMemo(
@@ -108,10 +109,10 @@ export function PricingScreen() {
               }
               className="size-3.5 accent-[var(--color-accent-500)]"
             />
-            Select all visible
+            {t('action.selectAllVisible')}
           </label>
           <span className="text-[11.5px] text-ink-400">
-            {visible.length} shown · {selection.size} selected
+            {t('pricing.shownSelected', { shown: visible.length, selected: selection.size })}
           </span>
         </div>
         <button
@@ -127,10 +128,7 @@ export function PricingScreen() {
         {loadingPricing ? (
           <TableSkeleton rows={12} />
         ) : visible.length === 0 ? (
-          <EmptyState
-            title="No countries match"
-            body="Try a different search, or reset the filters."
-          />
+          <EmptyState title={t('pricing.noMatch')} body={t('pricing.noMatchBody')} />
         ) : (
           visible.map((change) => (
             <CountryRow
@@ -150,6 +148,7 @@ export function PricingScreen() {
 
 function ActionBar() {
   const { selection, clearSelection, setScreen } = useStore();
+  const t = useT();
   const changeSet = useChangeSet();
   const changed = changeSet?.summary.changed ?? 0;
   const invalid = changeSet?.summary.invalid ?? 0;
@@ -158,15 +157,19 @@ function ActionBar() {
     <div className="flex shrink-0 items-center gap-2 border-t border-ink-200 bg-white px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <div className="text-[12.5px] font-medium text-ink-900">
-          {selection.size} {selection.size === 1 ? 'country' : 'countries'} selected
+          {selection.size === 1
+            ? t('pricing.countrySelected')
+            : t('pricing.countriesSelected', { count: selection.size })}
         </div>
         <div className="truncate text-[11.5px] text-ink-500">
-          {changed} will change
-          {invalid > 0 && <span className="text-fall-500"> · {invalid} need attention</span>}
+          {t('pricing.willChange', { count: changed })}
+          {invalid > 0 && (
+            <span className="text-fall-500"> · {t('pricing.needAttention', { count: invalid })}</span>
+          )}
         </div>
       </div>
       <Button size="sm" variant="ghost" onClick={clearSelection} disabled={!selection.size}>
-        Clear
+        {t('action.clear')}
       </Button>
       <Button
         size="sm"
@@ -175,7 +178,7 @@ function ActionBar() {
         shortcut="⌘↵"
         onClick={() => setScreen('review')}
       >
-        Review changes
+        {t('action.reviewChanges')}
       </Button>
     </div>
   );

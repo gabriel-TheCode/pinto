@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { onEvent, send } from '@/services/client';
-import { useStore, type Screen } from './store';
+import { useStore, useT, type Screen } from './store';
+import type { TranslationKey } from './i18n';
 import { AuthScreen } from '@/features/auth/AuthScreen';
 import { PricingScreen } from '@/features/pricing/PricingScreen';
 import { StrategyScreen } from '@/features/strategies/StrategyScreen';
@@ -8,18 +9,20 @@ import { ReviewScreen } from '@/features/pricing/ReviewScreen';
 import { HistoryScreen } from '@/features/history/HistoryScreen';
 import { PresetsScreen } from '@/features/presets/PresetsScreen';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
+import { GuideScreen } from '@/features/guide/GuideScreen';
 import { PackageNamePrompt } from '@/features/auth/PackageNamePrompt';
 import { UnsupportedPage } from '@/features/pricing/UnsupportedPage';
 import { ToastViewport } from '@/components/Toast';
 import { ErrorPanel, Skeleton } from '@/components/Feedback';
 import { cx } from '@/lib/cx';
 
-const NAV: { id: Screen; label: string }[] = [
-  { id: 'pricing', label: 'Pricing' },
-  { id: 'strategy', label: 'Strategy' },
-  { id: 'presets', label: 'Presets' },
-  { id: 'history', label: 'History' },
-  { id: 'settings', label: 'Settings' },
+const NAV: { id: Screen; key: TranslationKey }[] = [
+  { id: 'pricing', key: 'nav.pricing' },
+  { id: 'strategy', key: 'nav.strategy' },
+  { id: 'presets', key: 'nav.presets' },
+  { id: 'history', key: 'nav.history' },
+  { id: 'guide', key: 'nav.guide' },
+  { id: 'settings', key: 'nav.settings' },
 ];
 
 export function App() {
@@ -36,6 +39,7 @@ export function App() {
     refreshContext,
     setError,
   } = useStore();
+  const t = useT();
 
   useEffect(() => {
     void boot();
@@ -80,7 +84,7 @@ export function App() {
                 : 'text-ink-500 hover:text-ink-800',
             )}
           >
-            {item.label}
+            {t(item.key)}
             {(screen === item.id || (screen === 'review' && item.id === 'pricing')) && (
               <span className="absolute inset-x-1.5 -bottom-px h-0.5 rounded-full bg-ink-900" />
             )}
@@ -100,6 +104,7 @@ export function App() {
         {screen === 'review' && <ReviewScreen />}
         {screen === 'presets' && <PresetsScreen />}
         {screen === 'history' && <HistoryScreen />}
+        {screen === 'guide' && <GuideScreen />}
         {screen === 'settings' && <SettingsScreen />}
       </main>
 
@@ -110,6 +115,7 @@ export function App() {
 
 function Header() {
   const { auth, context, pricing, signOut, setScreen } = useStore();
+  const t = useT();
 
   return (
     <header className="flex shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-2.5">
@@ -120,7 +126,7 @@ function Header() {
         <div className="flex items-baseline gap-1.5">
           <span className="text-[13px] font-semibold tracking-[-0.015em] text-ink-900">Pinto</span>
           <span className="truncate text-[11.5px] text-ink-400">
-            {pricing?.label ?? context?.packageName ?? 'Bulk pricing for Google Play'}
+            {pricing?.label ?? context?.packageName ?? t('app.tagline')}
           </span>
         </div>
         {context?.packageName && (
@@ -133,7 +139,7 @@ function Header() {
       <button
         type="button"
         onClick={() => setScreen('settings')}
-        title={auth?.email ?? 'Account'}
+        title={auth?.email ?? t('app.account')}
         className="flex items-center gap-1.5 rounded-full border border-ink-200 py-0.5 pr-2 pl-0.5 hover:bg-ink-50"
       >
         {auth?.picture ? (
@@ -144,7 +150,7 @@ function Header() {
           </span>
         )}
         <span className="max-w-[90px] truncate text-[11.5px] text-ink-600">
-          {auth?.email ?? 'Account'}
+          {auth?.email ?? t('app.account')}
         </span>
       </button>
       <button
@@ -152,7 +158,7 @@ function Header() {
         onClick={() => void signOut()}
         className="rounded-md px-1.5 py-1 text-[11.5px] text-ink-500 hover:bg-ink-100 hover:text-ink-800"
       >
-        Sign out
+        {t('app.signOut')}
       </button>
     </header>
   );

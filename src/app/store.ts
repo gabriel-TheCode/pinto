@@ -21,8 +21,16 @@ import { DEFAULT_ROUNDING } from '@/domain/pricing/rounding';
 import type { RateTable } from '@/domain/pricing/rates';
 import type { CountryFilter, CustomGroup } from '@/domain/regions/groups';
 import { toast } from '@/components/Toast';
+import { detectLocale, isLocale, translate, type Locale, type TranslationKey } from './i18n';
 
-export type Screen = 'pricing' | 'strategy' | 'review' | 'presets' | 'history' | 'settings';
+export type Screen =
+  | 'pricing'
+  | 'strategy'
+  | 'review'
+  | 'presets'
+  | 'history'
+  | 'guide'
+  | 'settings';
 
 export const DEFAULT_STRATEGY: StrategyConfig = {
   strategy: { kind: 'percentage', percent: 10 },
@@ -34,6 +42,7 @@ export const DEFAULT_STRATEGY: StrategyConfig = {
 interface State {
   ready: boolean;
   screen: Screen;
+  locale: Locale;
   auth: AuthState | null;
   context: PageContext | null;
 
@@ -64,6 +73,7 @@ interface State {
   // actions
   boot: () => Promise<void>;
   setScreen: (screen: Screen) => void;
+  setLocale: (locale: Locale) => Promise<void>;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   setClientId: (clientId: string) => Promise<void>;
@@ -110,6 +120,7 @@ export function productKeyOf(summary: {
 export const useStore = create<State>((set, get) => ({
   ready: false,
   screen: 'pricing',
+  locale: detectLocale(),
   auth: null,
   context: null,
   products: [],
@@ -139,6 +150,12 @@ export const useStore = create<State>((set, get) => ({
       ]);
       set({ auth, context, ready: true });
       void get().loadGroups();
+      void send({ type: 'settings/get' })
+        .then((settings) => {
+          // A stored choice wins; otherwise keep the browser-detected default.
+          if (isLocale(settings.locale)) set({ locale: settings.locale });
+        })
+        .catch(() => undefined);
       if (auth.signedIn && context.packageName) await get().loadProducts();
     } catch (error) {
       set({ ready: true, error: asPayload(error) });
@@ -151,6 +168,13 @@ export const useStore = create<State>((set, get) => ({
     // conversion table is loaded for what's about to be reviewed.
     if (screen === 'review') void get().ensureConversion();
   },
+  async setLocale(locale) {
+    set({ locale });
+    // Persisted through the worker like every other setting, so the choice
+    // survives a panel reload and applies to the popup too.
+    await send({ type: 'settings/update', patch: { locale } }).catch(() => undefined);
+  },
+
   setError: (error) => set({ error }),
   setProgress: (progress) => set({ progress }),
   setAuth: (auth) => set({ auth }),
@@ -529,4 +553,13 @@ function conversionReference(
 
 export function useChangeSet(): ChangeSet | null {
   return useStore(selectChangeSet);
+}
+
+/**
+ * Translation bound to the current locale. A hook rather than a global `t()`
+ * so that changing the language re-renders every screen that shows text.
+ */
+export function useT(): (key: TranslationKey, vars?: Record<string, string | number>) => string {
+  const locale = useStore((state) => state.locale);
+  return (key, vars) => translate(locale, key, vars);
 }

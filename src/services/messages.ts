@@ -95,6 +95,8 @@ export type Request =
   | { type: 'presets/list' }
   | { type: 'presets/save'; preset: unknown }
   | { type: 'presets/delete'; id: string }
+  | { type: 'settings/get' }
+  | { type: 'settings/update'; patch: Record<string, unknown> }
   | { type: 'groups/list' }
   | { type: 'groups/save'; group: unknown }
   | { type: 'groups/delete'; id: string }
@@ -133,6 +135,8 @@ export interface ResponseMap {
   'presets/list': unknown[];
   'presets/save': unknown[];
   'presets/delete': unknown[];
+  'settings/get': Record<string, unknown>;
+  'settings/update': Record<string, unknown>;
   'groups/list': CustomGroup[];
   'groups/save': CustomGroup[];
   'groups/delete': CustomGroup[];

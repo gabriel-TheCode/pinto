@@ -18,6 +18,7 @@ Pinto lives inside Play Console. Open a subscription, one-time product or pricin
 - **Review every row** before applying: current price, new price, change, and any warning attached to it.
 - **Apply**, then see what Google Play actually accepted — including which countries it rejected and why.
 - **Undo**, using the price snapshot taken immediately before the write.
+- **Learn it in the app** — a Guide tab walks through the workflow, the strategies, the safety rails and the common error messages, in English or French.
 
 ### How it talks to Google Play
 
@@ -189,7 +190,7 @@ npm test
 npm run typecheck
 ```
 
-273 tests across three levels:
+293 tests across three levels:
 
 - **Unit** — micros/`Money` round-trips and currency granularity, rounding (including the invariant that rounding never moves a price by more than one unit), the formula parser and its sandbox, implied FX derivation, region filtering, preset schema validation.
 - **Integration** — `computeChangeSet` across every strategy; the full panel state machine from boot through selection, strategy, review and apply, asserting that what the review screen showed is exactly what gets sent; the apply engine's bisect isolation, dry run, undo and unrecoverable-error paths against a fake Play that behaves like the real all-or-nothing endpoint.

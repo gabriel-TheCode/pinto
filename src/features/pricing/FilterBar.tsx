@@ -1,5 +1,5 @@
 import { useMemo, useRef, useEffect } from 'react';
-import { useStore } from '@/app/store';
+import { useStore, useT } from '@/app/store';
 import { CONTINENTS, subregionsOf } from '@/domain/regions/countries';
 import { cx } from '@/lib/cx';
 import type { Continent } from '@/types';
@@ -11,6 +11,7 @@ import type { Continent } from '@/types';
  */
 export function FilterBar({ currencies }: { currencies: string[] }) {
   const { filter, setFilter } = useStore();
+  const t = useT();
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export function FilterBar({ currencies }: { currencies: string[] }) {
             ref={searchRef}
             value={filter.query ?? ''}
             onChange={(event) => setFilter({ query: event.target.value })}
-            placeholder="Search countries, codes, currencies"
+            placeholder={t('pricing.searchPlaceholder')}
             className="h-8 w-full rounded-lg border border-ink-200 bg-white pr-8 pl-7 text-[12.5px] placeholder:text-ink-400 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 focus:outline-none"
           />
           <kbd className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-ink-400">
@@ -78,7 +79,7 @@ export function FilterBar({ currencies }: { currencies: string[] }) {
           }
           className="h-8 rounded-lg border border-ink-200 bg-white px-2 text-[12px] text-ink-700 focus:border-accent-500 focus:outline-none"
         >
-          <option value="">All currencies</option>
+          <option value="">{t('pricing.allCurrencies')}</option>
           {currencies.map((currency) => (
             <option key={currency} value={currency}>
               {currency}
@@ -114,7 +115,7 @@ export function FilterBar({ currencies }: { currencies: string[] }) {
             }
             className="rounded-full px-2 py-0.5 text-[11.5px] text-ink-500 hover:text-ink-900 hover:underline"
           >
-            Reset filters
+            {t('pricing.resetFilters')}
           </button>
         )}
       </div>

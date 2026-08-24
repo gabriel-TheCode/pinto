@@ -42,6 +42,8 @@ export interface StoredProfile {
 }
 
 export interface Settings {
+  /** Panel language. Chosen by the user, defaulting to the browser's. */
+  locale: 'en' | 'fr';
   /** Region used as the reference for conversions and formulas. */
   baseRegion: RegionCode;
   /** Play "regions version" sent with subscription writes. */
@@ -52,6 +54,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  locale: 'en',
   baseRegion: 'US',
   regionsVersion: '2022/02',
   confirmThreshold: 25,
