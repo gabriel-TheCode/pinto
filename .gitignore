@@ -3,3 +3,7 @@ dist/
 *.log
 .DS_Store
 release/
+
+# Your own pricing strategies. Never published: a preset is a commercial
+# decision, not sample data. `private/README.md` explains what lives here.
+private/

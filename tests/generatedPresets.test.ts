@@ -16,7 +16,6 @@ import type { Preset, ProductPricing, TierStrategy } from '@/types';
 
 const FILES = [
   'presets/purchasing-power-tiers.json',
-  'presets/iptv-three-product-ladder.json',
 ];
 
 function load(file: string): Preset[] {
@@ -106,9 +105,7 @@ describe('running a generated preset through the engine', () => {
     raw: {},
   };
 
-  const ladder = FILES.flatMap(load).find(
-    (preset) => preset.config.strategy.kind === 'tiers' && preset.name.includes('Monthly'),
-  )!;
+  const ladder = FILES.flatMap(load).find((preset) => preset.config.strategy.kind === 'tiers')!;
 
   it('produces a strictly descending price ladder', () => {
     const changeSet = computeChangeSet({

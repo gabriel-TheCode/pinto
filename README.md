@@ -283,3 +283,17 @@ reach whatever is underneath without closing Pinto. The layout is remembered.
 TypeScript · React 19 · Vite 6 · Tailwind 4 · Zustand · Zod · Vitest. No UI framework beyond the design system in `src/components/`, no HTTP client, no date library, no state-machine library.
 
 Two Vite configs: the panel, popup and service worker build as ES modules; the content script builds as a single IIFE, because MV3 content scripts cannot be modules.
+
+---
+
+## Presets
+
+`presets/purchasing-power-tiers.json` is a starting point, not a recommendation: a five-band ladder with no product and no anchor price behind it. Import it, then edit every band before you apply anything.
+
+Your own presets are a different kind of file. A preset carries an anchor price, band shares and a country-by-country assignment — the pricing strategy itself. Keep those in `private/`, which is gitignored, rather than committing them.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
