@@ -139,6 +139,14 @@ Pinto activates on `https://play.google.com/console/*` when the route is a monet
 - One-time products (`managed-products`, `one-time-products`, `in-app-products`)
 - App pricing
 
+Play has two generations of one-time product and Pinto reads both: the newer
+purchase-option model (`monetization.onetimeproducts`) and the legacy managed
+products (`inappproducts`). An app migrated to the newer model has its legacy
+collection refused outright by Google, which Pinto treats as expected rather
+than reporting it as a fault. Google's own reference pages disagree on the URL
+casing for that resource and the live API has disagreed with both, so the read
+and write paths are each probed once and cached separately.
+
 It reads the developer id, the internal app id, and — when present — the product id and base plan id from the URL, then opens that product automatically.
 
 Play Console's URL carries an internal numeric app id, not a package name, and the API is keyed by package name. Pinto tries to read the package name from the page once; if it can't, it asks you, and remembers the answer for that app.
@@ -151,17 +159,18 @@ Play Console's URL carries an internal numeric app id, not a package name, and t
 src/
   domain/          pure business logic — no React, no Chrome, no network
     money/         micros arithmetic, currency decimals, formatting
-    pricing/       rounding, implied FX, change-set computation, validation
-    regions/       country table, groups, filtering
+    pricing/       rounding, conversion, change-set computation, validation
+    regions/       country table, economic bands, groups, filtering
     formula/       hand-written expression parser (no eval)
     presets/       zod schemas for untrusted preset imports
   services/        API client, auth, storage, logging, message contract
   background/      MV3 service worker: routing and the apply engine
-  content/         page detection, launcher injection, package sniffing
+  content/         page detection, launcher injection, panel window chrome
   panel/ popup/    entry points
-  app/             shell, store, theme
+  app/             shell, store, theme, i18n dictionaries
   components/      design system primitives
-  features/        auth, pricing, strategies, presets, history, settings
+  features/        auth, pricing, strategies, regions, presets, history,
+                   guide, settings
 ```
 
 **The rule that shapes everything:** pricing logic is pure and lives in `domain/`. `computeChangeSet` takes a product, a selection and a strategy and returns the exact rows that will be written. The review screen renders that value; the apply engine sends that value. There is no second code path where the numbers could diverge from what you approved.
@@ -190,7 +199,11 @@ The generated presets in `presets/` are built from the same module, so what ship
 
 ### Two decisions worth explaining
 
-**Currency conversion without an FX service.** "Set European markets to €4.99 equivalent" needs exchange rates. Calling a rates API would mean sending pricing context to a third party and producing numbers that disagree with Google's own conversion. Instead, Pinto derives rates from the product's *own existing prices*: if US is $4.99 and Brazil is R$24.90, then for this product 1 USD implies 4.99 BRL. Rates are local, consistent with the pricing Google generated, and shown per row. A market with no existing price has no implied rate, and Pinto flags that row rather than inventing one.
+**Currency conversion that survives being run twice.** "Set European markets to €4.99 equivalent" needs exchange rates, and no third-party rates service is involved — that would mean sending pricing context elsewhere and producing numbers that disagree with Google's own conversion.
+
+Pinto asks Google instead, through `convertRegionPrices`: the same conversion Play Console performs, for a reference amount, independent of the product's current prices. That independence is the point. Deriving rates from the product's own prices — the obvious approach, and Pinto's first one — works exactly once: after a ladder tiers the markets, re-deriving rates from those tiered prices compounds the tiering, and applying the same preset twice collapses the low bands. Sourcing the table from Google makes the operation idempotent, which a test asserts by feeding a result back in and expecting no change.
+
+Rates implied by the product's own prices remain the fallback when the conversion call fails, so a network hiccup degrades the result instead of blocking the write.
 
 **Partial failure, when the API is all-or-nothing.** Play has no per-country price endpoint: one call writes the whole product, and one bad country fails the batch with an error that may not name it. Pinto attempts the change atomically, and on rejection **binary-searches** the change set to find the exact countries responsible, applying everything that works. Then it re-reads the product to confirm what actually landed. "Updated 128 of 132 countries, here are the 4" is a measured result, not an assumption.
 
@@ -206,9 +219,9 @@ npm test
 npm run typecheck
 ```
 
-293 tests across three levels:
+295 tests across three levels:
 
-- **Unit** — micros/`Money` round-trips and currency granularity, rounding (including the invariant that rounding never moves a price by more than one unit), the formula parser and its sandbox, implied FX derivation, region filtering, preset schema validation.
+- **Unit** — micros/`Money` round-trips and currency granularity, rounding (including the invariants that it never moves a price by more than one unit and never lands on a round `.00`), the formula parser and its sandbox, conversion tables, the economic bands and ladder generator, region filtering, preset and translation-dictionary validation.
 - **Integration** — `computeChangeSet` across every strategy; the full panel state machine from boot through selection, strategy, review and apply, asserting that what the review screen showed is exactly what gets sent; the apply engine's bisect isolation, dry run, undo and unrecoverable-error paths against a fake Play that behaves like the real all-or-nothing endpoint.
 - **Extension** — content-script injection and shadow-root isolation, inline-anchor detection and its fallback, package-name sniffing, URL-based page detection, message-passing failure modes, React rendering of the sign-out / unsupported-page / unknown-app / pricing / review screens, and the full tiering flow driven through the UI.
 
@@ -230,11 +243,11 @@ Chrome APIs are faked in `tests/chromeMock.ts` with real backing stores, so a te
 
 - **Countries must already exist on the product.** Play's API updates prices for regions the product already offers; it does not add a country. Add the market in Play Console first, then price it here. Pinto refuses such a write with a clear message rather than sending something that will fail.
 - **Existing subscribers keep their price.** New prices apply to new subscribers. Changing what existing subscribers pay is a separate Play flow with its own notice and consent rules, and Pinto deliberately does not automate it. The review screen says so.
-- **Conversion needs an existing price.** A market with no price in a given currency has no implied rate; those rows are blocked with an explanation instead of guessed.
+- **Conversion needs a currency Google will quote.** A market Google's conversion does not return, and that the product does not already price, has no rate; those rows are blocked with an explanation instead of guessed.
 - **Offers and prepaid plans are not edited.** Pinto writes base-plan and one-time-product prices. Offer prices are passed through untouched.
 - **One product at a time.** Applying one strategy across several products in one action is not implemented; the architecture allows it (the apply engine is keyed per product) but the UI is single-product.
 - **The package-name sniff is best-effort.** It is the one place Pinto reads Play Console's DOM. When it fails you type the name once.
-- **`regionsVersion` is pinned to `2022/02`** for subscription writes, and is configurable in code (`DEFAULT_SETTINGS`).
+- **The regions version is discovered, not pinned.** Play requires one on every write and validates every region's currency against it, but exposes no way to read the current value — and the published default predates changes such as Bulgaria adopting the euro, which makes it reject valid prices. Pinto learns the live version from `convertRegionPrices` and falls back to the configured default only if that call fails.
 - **Rate limits.** Large or repeated operations can hit Play Developer API quotas; Pinto reports a 429 as retryable rather than retrying in a loop.
 
 ---
@@ -248,6 +261,11 @@ Chrome APIs are faked in `tests/chromeMock.ts` with real backing stores, so a te
 | `⌘/Ctrl + A` | Select or clear all visible countries |
 | `⌘/Ctrl + ↵` | Review changes |
 | `Esc` | Close the panel |
+
+The panel is a window, not a fixed sidebar: drag its title bar to move it, dock
+it to either edge with the arrow buttons, drag an edge or corner to resize, and
+collapse it to its title bar with `▾` or a double-click on the bar — enough to
+reach whatever is underneath without closing Pinto. The layout is remembered.
 
 ---
 
