@@ -1,0 +1,5 @@
+/* Tailwind v4 detects content relative to the Vite root, which for this
+   harness is `screenshots/`. The components live in `src/`, so the scan has to
+   be pointed there explicitly or every utility class comes out empty. */
+@import '../src/app/theme.css';
+@source '../src';

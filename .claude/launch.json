@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "screenshots",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--config", "vite.screenshots.config.ts"],
+      "port": 5178
+    }
+  ]
+}

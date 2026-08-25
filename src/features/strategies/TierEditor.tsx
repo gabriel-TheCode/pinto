@@ -146,7 +146,8 @@ export function TierEditor({
                 aria-expanded={expanded === tier}
                 className="rounded px-1 text-[11px] text-ink-400 tabular hover:text-ink-800 disabled:hover:text-ink-400"
               >
-                {counts.get(tier) ?? 0} markets {(counts.get(tier) ?? 0) > 0 && (expanded === tier ? '▾' : '▸')}
+                {counts.get(tier) ?? 0} {(counts.get(tier) ?? 0) === 1 ? 'market' : 'markets'}{' '}
+                {(counts.get(tier) ?? 0) > 0 && (expanded === tier ? '▾' : '▸')}
               </button>
               <input
                 type="number"

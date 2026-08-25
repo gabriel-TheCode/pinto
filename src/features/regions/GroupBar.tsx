@@ -7,10 +7,10 @@ import { cx } from '@/lib/cx';
  * User-defined country groups.
  *
  * Geography is a poor proxy for what a price should be — France and Romania
- * share a continent and very little else, and no re-cut of "Western Europe"
- * fixes that without smuggling an economic judgement into what looks like
- * reference data. So Pinto still ships no income tiers; instead it lets you
- * build the groupings your pricing actually uses, name them, and reuse them.
+ * share a continent and very little else. The Tiers strategy answers that with
+ * purchasing-power bands; this answers the cases those bands do not fit, by
+ * letting you name the groupings your own pricing actually uses and reuse them
+ * anywhere a region can be picked.
  *
  * Clicking a group *adds* to the selection rather than replacing it, so bands
  * can be composed — "EU high income" plus "Nordics" — without starting over.
@@ -32,7 +32,7 @@ export function GroupBar() {
     return (
       <div className="flex shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-1.5">
         <span className="flex-1 text-[11.5px] text-ink-400">
-          Group the markets you price alike — Pinto ships no income tiers of its own.
+          Save the markets you price alike, and reuse the grouping anywhere.
         </span>
         <Button size="sm" variant="ghost" disabled={!selection.size} onClick={() => setNaming(true)}>
           Save selection as group

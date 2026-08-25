@@ -90,7 +90,7 @@ export const CountryRow = memo(function CountryRow({
         )}
         {change.rateUsed !== undefined && !error && (
           <div className="text-[10.5px] text-ink-400">
-            implied rate ×{change.rateUsed.toFixed(change.rateUsed < 10 ? 3 : 1)}
+            rate ×{change.rateUsed.toFixed(change.rateUsed < 10 ? 3 : 1)}
           </div>
         )}
       </div>

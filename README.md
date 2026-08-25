@@ -20,6 +20,15 @@ Pinto lives inside Play Console. Open a subscription, one-time product or pricin
 - **Undo**, using the price snapshot taken immediately before the write.
 - **Learn it in the app** — a Guide tab walks through the workflow, the strategies, the safety rails and the common error messages, in English or French.
 
+| | |
+| --- | --- |
+| ![The pricing table](docs/screenshots/pricing.png) | ![Purchasing-power tiers](docs/screenshots/strategy-tiers.png) |
+| **Pricing** — every market the product sells in, with the new price and the change beside the old one. Filter by search, continent, sub-region or currency. | **Tiers** — a purchasing-power ladder across five bands, generated on request and editable band by band and country by country. |
+| ![Review before applying](docs/screenshots/review.png) | ![The in-app guide](docs/screenshots/guide.png) |
+| **Review** — split into changing, warnings, blocked and unchanged. Blocked rows are never written, and every row says why. | **Guide** — the workflow, the strategies, the safety rails and the common error messages, in English or French. |
+
+<sub>Screenshots are the real panel rendered against sample data by `npm run screenshots`, not mockups.</sub>
+
 ### How it talks to Google Play
 
 Pinto reads and writes prices through the **Google Play Developer API** (`androidpublisher` v3), authenticated as you. It does not type into Play Console's UI and does not scrape prices out of the page.

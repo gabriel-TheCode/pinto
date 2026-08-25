@@ -382,7 +382,7 @@ describe('seeing what is in a tier', () => {
     await user.click(within(tierRow('T2 · Established')).getByText(/2 markets/));
     await user.click(screen.getByLabelText('Remove Morocco from T2 · Established'));
 
-    expect(within(tierRow('T2 · Established')).getByText(/1 markets/)).toBeTruthy();
+    expect(within(tierRow('T2 · Established')).getByText(/1 market\b/)).toBeTruthy();
     expect(within(screen.getByLabelText('Markets in T2 · Established')).queryByText('Morocco')).toBeNull();
     expect(within(screen.getByLabelText('Markets in T2 · Established')).getByText('Algeria')).toBeTruthy();
   });
