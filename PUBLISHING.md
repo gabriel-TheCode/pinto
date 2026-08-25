@@ -54,14 +54,24 @@ is a small change — the client ID becomes a constant instead of a setting.
 ## 2. Host the privacy policy
 
 The store submission needs a **public URL**, not a file. `PRIVACY.md` in this
-repository is the source. Quickest options:
+repository is the source, and the repository is public, so its file URL is the
+answer:
 
-- The GitHub file URL, once the repository is public:
-  `https://github.com/gabriel-TheCode/pinto/blob/main/PRIVACY.md`
-- Or GitHub Pages, if you prefer a plain page.
+```
+https://github.com/gabriel-TheCode/pinto/blob/main/PRIVACY.md
+```
 
-The repository is currently **private**. Either make it public or host the
-policy elsewhere — a URL reviewers cannot open fails the submission.
+Paste that into the listing's **Privacy policy URL** field, then open it in a
+logged-out browser before submitting. A URL reviewers cannot load fails the
+submission, and that is the only way this step goes wrong.
+
+GitHub Pages is an alternative if you would rather serve a plain page than a
+rendered Markdown file. It changes nothing about the policy itself.
+
+Keep the policy and the manifest in step. `PRIVACY.md` names the exact scopes,
+permissions and storage keys Pinto uses, so any change to `public/manifest.json`
+that adds a permission is also a change to that file — and reviewers do compare
+the two.
 
 ## 3. Build the upload artefact
 
@@ -156,3 +166,5 @@ npm test && npm run typecheck && npm run package
 - [ ] Privacy policy URL reachable by a logged-out visitor
 - [ ] Redirect URI on the OAuth client matches the published extension ID
 - [ ] Screenshots show the current UI, not an older build
+- [ ] Nothing from `private/` is staged — your own presets are pricing strategy,
+      and the repository is public
