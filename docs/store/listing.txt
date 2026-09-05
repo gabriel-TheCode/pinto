@@ -1,5 +1,5 @@
 ================================================================
-SHORT DESCRIPTION (132 characters max — this field is separate)
+SHORT DESCRIPTION (132 characters max — separate field)
 ================================================================
 
 Bulk pricing, without the bulk work. Edit Google Play regional prices across every country from one review-before-apply workflow.
@@ -11,200 +11,92 @@ Bulk pricing, without the bulk work. Edit Google Play regional prices across eve
 DETAILED DESCRIPTION
 ================================================================
 
-Play Console gives you two options for pricing a product in 150 countries: set
-one price everywhere, or edit them one at a time. Neither is what you want.
+Play Console gives you two ways to price a product in 150 countries: one price
+everywhere, or 150 edits by hand.
 
-Pinto is the third option. It opens beside the prices you were already looking
-at, works out the new price for every market you selected, shows you the whole
-change before anything is written, and then writes it — through the Google Play
-Developer API, as you.
+Pinto gives you the third. Select your markets, choose how the price should
+change, look at the result, apply. Minutes instead of an afternoon.
 
 
-PRICE BY ECONOMIC ZONE, IN ONE CLICK
+CHARGE LESS WHERE PEOPLE EARN LESS
 
-This is the thing Play Console cannot do, and the reason Pinto exists.
+One price cannot be right in both Norway and Nigeria. Pinto sorts every country
+into five purchasing-power bands and builds the ladder for you — you pick how
+steep it goes, from gentle to aggressive.
 
-A single price cannot be right in both Norway and Nigeria. Pinto groups every
-supported country into five purchasing-power bands and builds a ladder from
-your base market's price:
+Then you edit it. Every band, every country, every price. It is a starting
+point, not a verdict.
 
-- Pick how steep it is: flat, gentle, balanced or aggressive.
-- Every band is a share of your base price, and every share is editable.
-- Every country stays editable too — move one between bands, or override its
-  price outright.
-- Nothing is applied until you have reviewed it.
-
-The bands are built from World Bank income groups and GNI per capita at
-purchasing power parity, adjusted for observed app-store spend. Pinto states
-that basis in the interface rather than presenting the ladder as a fact. It is
-a defensible starting point, not a measurement, and it is meant to be edited.
+This is the feature Play Console does not have, and the reason most people
+install Pinto.
 
 
-EVERY WAY TO SET A PRICE
+SIX WAYS TO SET A PRICE
 
-- Percentage — raise or lower by a percentage.
-- Multiplier — multiply the current price.
-- Fixed price — one amount, converted into each market's currency.
-- Copy from market — take one country's price as the reference for the rest.
-- Tiers — bands you define, or the purchasing-power ladder above.
-- Formula — a written expression over the current price, parsed properly. No
-  eval, no surprises.
+Raise or lower by a percentage. Multiply. Set one fixed amount. Copy one
+country's price to the rest. Build your own tiers. Or write a formula.
 
-Currency conversion uses Google's own conversion rates, requested from the Play
-API for your product. That matters more than it sounds: deriving rates from a
-product's existing prices makes every re-run compound the last one, so prices
-drift a little further every time you apply. Pinto's results are idempotent —
-applying the same ladder twice changes nothing the second time.
+Prices convert into each market's own currency using Google's rates, and land
+on endings that look like pricing — .99, .49, or whatever you use.
 
 
-ROUNDING THAT LOOKS LIKE PRICING
+PICK YOUR MARKETS IN SECONDS
 
-- Charm endings — .99, .95, .90, .49.
-- Your own endings — give it the list you use.
-- Whole units.
-- None.
-
-Rounding respects each currency's real minor-unit granularity, so a JPY price
-never comes out with decimals it cannot have.
+Search, continent, sub-region, currency, or one country at a time. Save the
+markets you price alike as a named group and reuse it forever.
 
 
-CHOOSING THE MARKETS
+SEE IT BEFORE YOU SEND IT
 
-Select by search, by continent, by sub-region, by currency, or one country at a
-time. Save any selection as a named group and reuse it anywhere — geography is
-a poor proxy for what a price should be, and France and Romania share a
-continent and very little else.
+Every change goes through Review first: old price, new price, difference, one
+row per country. Warnings are flagged. Anything invalid is blocked before it
+reaches Google.
 
+Then apply, and get a straight answer about what happened — including which
+countries Google refused, and why.
 
-NOTHING IS WRITTEN UNTIL YOU SAY SO
-
-The Review screen splits your change into four groups: changing, warnings,
-blocked, unchanged. Every row shows the old price, the new price and the
-difference. Warnings name themselves — a change of more than 50%, a currency
-Pinto has no decimal rule for. Blocked rows are never sent, and each one says
-why.
-
-The review screen renders the exact values the apply engine sends. There is no
-second code path where the numbers could differ from what you approved.
-
-There is also a dry run: record the operation in history without sending
-anything to Google Play.
+Wrong call? Undo restores the prices exactly as they were.
 
 
-WHEN GOOGLE REJECTS SOMETHING
+ALSO IN THE BOX
 
-The Play API writes a product's prices all or nothing, so one bad country
-fails the whole batch and the error does not say which country. Pinto binary-
-searches the rejected batch to name the failing markets, applies the rest, and
-then reads the prices back from Google to confirm what actually landed — rather
-than reporting success because the request returned.
-
-You get a per-country result: what was written, what was refused, and the
-reason.
+- Presets you can save, export and share with your team
+- History of every operation, with one-click restore
+- CSV export for the spreadsheet someone will ask for
+- Dry run, to rehearse without sending anything
+- A built-in guide, in English or French
 
 
-UNDO
+YOUR DATA STAYS YOURS
 
-Prices are captured immediately before every write. If a run goes wrong, restore
-them exactly as they were — from the snapshot, not from a guess. History keeps
-the last 50 operations locally, each with its snapshot.
+Pinto has no server. No analytics, no telemetry, no account to create. Prices
+go from your browser straight to Google and nowhere else — the developer never
+sees them, because there is nothing to see them with.
 
-
-PRESETS, HISTORY, CSV
-
-- Save a strategy as a preset, export it, import it, share it with a colleague.
-- Export any change set to CSV before applying it, for the spreadsheet someone
-  will inevitably ask for.
-- History records every operation with its per-country outcome.
+Your sign-in token lives in memory and disappears when Chrome closes.
 
 
-LEARN IT IN THE APP
+BEFORE YOU INSTALL
 
-A Guide tab walks through the workflow, the strategies, the safety rails and the
-error messages Google actually returns. Available in English and French, along
-with the rest of the interface.
+Pinto needs three things: a Play Console account that can edit prices, the Play
+Developer API switched on, and your own Google API key pasted in once.
 
-
-PRIVACY
-
-Pinto has no server. There is no Pinto backend, no analytics, no telemetry and
-no third-party service. Your data goes from your browser to Google and nowhere
-else. The developer receives nothing — there is no endpoint to receive it.
-
-- The OAuth access token is held in session memory and erased when Chrome
-  closes.
-- Pinto never requests and never stores a refresh token.
-- Presets, history, groups and settings are stored locally in your browser.
-- The operation log records region codes, product ids and API status codes. It
-  does not record prices.
-
-Removing the extension deletes everything Pinto stored.
-
-Full policy: https://github.com/gabriel-TheCode/pinto/blob/main/PRIVACY.md
+About five minutes, and the guide walks you through it. Worth knowing up front
+— because Pinto keeps no server, it cannot hold that key for you. The upside is
+that the access is yours, and you can revoke it whenever you like.
 
 
-WHAT YOU NEED BEFORE INSTALLING
+GOOD TO KNOW
 
-Read this part before you install, because Pinto will not work without it.
-
-1. A Play Console account with permission to edit prices.
-2. The Google Play Android Developer API enabled for the Google Cloud project
-   linked to your Play Console.
-3. Your own OAuth client ID, created in that Google Cloud project and pasted
-   into Pinto's settings once.
-
-The third step is the awkward one, and it is deliberate. Pinto has no server, so
-it cannot hold a shared client ID on your behalf; using your own also means the
-API access is yours, scoped to your own console, and revocable by you at
-myaccount.google.com/permissions.
-
-The in-app guide walks through all three. It takes about five minutes, once.
-
-
-PERMISSIONS, AND WHY
-
-- storage — saves your presets, history with price snapshots for undo, custom
-  groups and settings, locally in your browser.
-- identity — runs the Google sign-in flow.
-- play.google.com/console — shows Pinto's panel on Play Console pages and reads
-  the current route to work out which product you are looking at.
-- androidpublisher.googleapis.com — the Google Play Developer API, where prices
-  are read and written.
-- openidconnect.googleapis.com — reads your name, email and avatar after
-  sign-in, to show which account is connected.
-
-There is no broad host permission, no tabs permission, and no remotely hosted
-code.
-
-
-BUILT ON THE API, NOT ON THE PAGE
-
-Pinto reads and writes through the Google Play Developer API. It does not type
-into Play Console's interface and does not scrape prices out of the page.
-
-That distinction is the whole design. Automating Play Console's DOM is quick to
-build and breaks the week Google reshuffles a table — and when it breaks in a
-pricing tool, it breaks quietly and expensively. Pinto uses the page for one
-thing only: working out which product you are looking at. A Play Console
-redesign costs it nothing.
-
-
-WHAT PINTO DOES NOT DO
-
-- It does not edit offer prices or prepaid plans. It writes base-plan and
-  one-time-product prices; offers are passed through untouched.
-- It applies one strategy to one product at a time.
-- It cannot make a country available. The country list is a naming and grouping
-  aid; whether Google sells in a market is Google's answer, and Pinto reports it
-  rather than asserting it.
-- It does not change prices for existing subscribers. New prices apply to new
-  subscribers; changing an existing subscriber's price is a Play Console price
-  change, with its own notice and consent rules.
+Pinto sets base prices for subscriptions and one-time products. It does not
+touch promotional offers or prepaid plans, and it does not change what existing
+subscribers already pay — Google handles that separately, with its own notice
+rules.
 
 
 OPEN SOURCE
 
-Pinto is MIT licensed. The pricing logic, the safety rails and the privacy
-claims above can all be read, and the whole extension can be built from source.
+MIT licensed, and readable end to end — including the part that decides your
+prices.
 
 https://github.com/gabriel-TheCode/pinto
