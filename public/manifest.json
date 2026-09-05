@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Pinto — bulk pricing for Google Play",
   "short_name": "Pinto",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Bulk pricing, without the bulk work. Edit Google Play regional prices across every country from one review-before-apply workflow.",
   "minimum_chrome_version": "114",
   "action": {
