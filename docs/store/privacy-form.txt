@@ -1,0 +1,81 @@
+================================================================
+DESCRIPTION DE L'OBJECTIF UNIQUE  (max 1000)
+================================================================
+Pinto has one purpose: bulk editing the regional prices of the user's own Google Play products.
+
+Inside Play Console, it opens a panel beside the product being viewed, computes new prices for the countries the user selects, shows every change for review, and writes the approved prices through the Google Play Developer API as the signed-in user. Supporting features all serve that single task: selecting markets, computing prices with a chosen strategy, reviewing them before any write, applying them, and restoring them from a pre-write snapshot if a run goes wrong.
+
+Pinto runs only on Play Console pages. It does not browse, track, advertise, inject content into other sites, or act on any host outside the three it declares.
+
+================================================================
+JUSTIFICATION — storage  (max 1000)
+================================================================
+Pinto stores the user's own working data locally, and nothing else.
+
+chrome.storage.local holds: the OAuth client ID the user configures; pricing presets they save; custom country groups they create; their settings, including interface language; the package name they confirmed for each Play Console app; a technical log of API operations recording region codes, product IDs and HTTP status codes but never prices; and an operation history.
+
+The history is what makes Undo possible. Each entry keeps the product's prices exactly as they were immediately before a write, so a mistaken run can be reverted to real values rather than recomputed ones.
+
+chrome.storage.session holds the OAuth access token and the signed-in account's display name, so both are erased when Chrome closes.
+
+None of this is transmitted anywhere. The extension has no server, no analytics and no third-party service.
+
+================================================================
+JUSTIFICATION — identity  (max 1000)
+================================================================
+The identity permission runs Google's OAuth sign-in flow through chrome.identity.launchWebAuthFlow, so the user can authorise Pinto to read and edit the prices of their own Play Console products via the Google Play Developer API.
+
+Pinto acts strictly as the signed-in user, against that user's own developer account, using an OAuth client ID the user creates in their own Google Cloud project and enters in the extension's settings. There is no shared or developer-owned client.
+
+Scopes requested: androidpublisher, to read and update the user's own product prices; and openid, email and profile, used solely to display which account is connected in the panel header.
+
+No refresh token is requested or stored. The access token is held in session memory only and never written to disk. The user can revoke access at any time at myaccount.google.com/permissions.
+
+================================================================
+JUSTIFICATION — Autorisation d'accès à l'hôte  (max 1000)
+================================================================
+Three host permissions, each required by a distinct step. None is broad, and there is no tabs permission.
+
+https://play.google.com/console/* — Pinto's interface is a panel injected into Play Console; this is the only site it runs on. The content script reads the current tab's URL to determine which app, subscription or one-time product the user is viewing, and reads the page once to find the app's package name. If that fails, the user types the name manually and Pinto remembers it.
+
+https://androidpublisher.googleapis.com/* — the Google Play Developer API, where the user's product prices are read and written. This is the extension's core function.
+
+https://openidconnect.googleapis.com/* — reads the signed-in user's name, email and avatar immediately after sign-in, to show which account is connected in the panel header.
+
+================================================================
+CODE DISTANT
+================================================================
+Select: "Non, je n'utilise pas Code distant"
+
+(The manifest sets content_security_policy.extension_pages to
+"script-src 'self'; object-src 'self'", so remotely hosted code cannot execute.
+Everything ships inside the package.)
+
+================================================================
+CONSOMMATION DES DONNÉES — cases à cocher
+================================================================
+COCHER:
+  [x] Informations permettant d'identifier personnellement l'utilisateur
+      (name, email and avatar, read after sign-in to show the connected account)
+  [x] Informations d'authentification
+      (the OAuth access token, held in session memory only)
+  [x] Contenu du site Web
+      (the package name, read once from the Play Console page)
+
+NE PAS COCHER:
+  [ ] Information sur la santé
+  [ ] Informations financières et de paiement
+  [ ] Communications personnelles
+  [ ] Localisation
+  [ ] Historique Web
+  [ ] Activité de l'utilisateur
+
+CERTIFICATIONS — cocher les trois:
+  [x] Je ne vends ni ne transfère les données des utilisateurs à des tiers…
+  [x] Je n'utilise ni ne transfère les données des utilisateurs à des fins sans rapport…
+  [x] Je n'utilise ni ne transfère les données des utilisateurs pour déterminer leur solvabilité…
+
+================================================================
+URL DES RÈGLES DE CONFIDENTIALITÉ
+================================================================
+https://github.com/gabriel-TheCode/pinto/blob/main/PRIVACY.md
