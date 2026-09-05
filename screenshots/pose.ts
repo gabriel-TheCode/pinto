@@ -39,8 +39,25 @@ export async function poseStore(options: {
 
   if (options.screen) useStore.getState().setScreen(options.screen as never);
 
-  // Let the conversion table land and React paint before the shot is taken.
+  /*
+   * Wait for Google's conversion table, rather than sleeping and hoping.
+   * ensureConversion() is async, so a fixed delay caught it on some runs and
+   * not others — and the two sources round a rate differently, so the same
+   * command produced different images. Whichever source a shot ends up using
+   * has to be the same one every time.
+   */
+  await waitFor(() => useStore.getState().conversionTable != null, 5_000);
+
+  // Then let React paint what just landed.
   await new Promise((resolve) => setTimeout(resolve, 400));
+}
+
+/** Resolves when `predicate` holds, or after `timeout` — never hangs a run. */
+async function waitFor(predicate: () => boolean, timeout: number): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (!predicate() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
 }
 
 /** The signal every capture script waits on, instead of a guessed delay. */

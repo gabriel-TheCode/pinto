@@ -28,6 +28,18 @@ const PRICES = [
 
 const MICROS = 1_000_000;
 
+/*
+ * A fixed instant for anything a capture renders as a date. Deriving the
+ * history timestamps from Date.now() moved the dates on every run, so an image
+ * changed without the UI changing.
+ *
+ * What the captures guarantee is stable content, not identical bytes: Chromium
+ * dithers the background gradients slightly differently between runs — 15
+ * sub-pixels of 3,072,000, at most 3 levels out of 255. Invisible, and not
+ * worth flattening a gradient to remove.
+ */
+const NOW = Date.parse('2026-09-05T11:00:00Z');
+
 const CATALOGUE = {
   unavailable: [],
   products: [
@@ -119,13 +131,14 @@ function respond(request: { type: string }): unknown {
         micros: Math.round(amount * MICROS),
       }));
       const hour = 3_600_000;
+      const now = NOW;
       // Three runs rather than one: a history screen with a single row says
       // nothing about what the log is for, and a partial result is the case
       // the per-country outcome exists to explain.
       return [
         {
           id: 'op-3',
-          timestamp: Date.now() - hour,
+          timestamp: now - hour,
           packageName: 'com.example.streaming',
           kind: 'subscription',
           productId: 'premium',
@@ -139,7 +152,7 @@ function respond(request: { type: string }): unknown {
         },
         {
           id: 'op-2',
-          timestamp: Date.now() - 26 * hour,
+          timestamp: now - 26 * hour,
           packageName: 'com.example.streaming',
           kind: 'subscription',
           productId: 'premium',
@@ -156,7 +169,7 @@ function respond(request: { type: string }): unknown {
         },
         {
           id: 'op-1',
-          timestamp: Date.now() - 3 * 24 * hour,
+          timestamp: now - 3 * 24 * hour,
           packageName: 'com.example.streaming',
           kind: 'onetime',
           productId: 'lifetime',

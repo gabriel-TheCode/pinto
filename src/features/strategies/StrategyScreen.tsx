@@ -216,7 +216,7 @@ function StrategyFields({
             checked={strategy.convert}
             onChange={(convert) => onChange({ ...strategy, convert })}
             label="Convert into each market’s currency"
-            description="Uses the exchange rates implied by this product’s own existing prices. Markets with no price yet cannot be converted and are flagged instead of guessed."
+            description="Uses Google’s own conversion rates for this product, falling back to the rates its existing prices imply. Markets with no price and no rate are flagged rather than guessed."
           />
         </>
       );

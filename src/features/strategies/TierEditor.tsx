@@ -302,7 +302,7 @@ export function TierEditor({
         checked={strategy.convert}
         onChange={(convert) => onChange({ ...strategy, convert })}
         label="Convert into each market’s currency"
-        description="Uses the rates implied by this product’s existing prices."
+        description="Uses Google’s rates for this product, falling back to the rates its own prices imply."
       />
     </>
   );
