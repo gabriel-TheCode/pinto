@@ -112,8 +112,10 @@ the limit and is reused):
 
 > Bulk pricing, without the bulk work. Edit Google Play regional prices across every country from one review-before-apply workflow.
 
-**Detailed description** — the README's "What it does" section is written for
-this; paste it and trim the API discussion.
+**Detailed description** — `docs/store/listing.txt` holds both descriptions,
+ready to paste. The field takes 16,000 characters and plain text only: the
+devconsole renders no Markdown, so the file uses bare headings and hyphens
+rather than `#` and `*`.
 
 **Graphics required.** Everything except the icon is generated:
 
