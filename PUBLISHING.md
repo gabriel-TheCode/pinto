@@ -115,13 +115,30 @@ the limit and is reused):
 **Detailed description** — the README's "What it does" section is written for
 this; paste it and trim the API discussion.
 
-**Graphics required:**
+**Graphics required.** Everything except the icon is generated:
 
-- Store icon 128×128 — `dist/icons/icon-128.png`
-- At least one screenshot, 1280×800 or 640×400. Take the panel open on a Play
-  Console pricing page, and the Review screen showing changed rows. Two or three
-  screenshots convert better than one.
-- Small promo tile 440×280 — optional but it is what shows in search results.
+```bash
+npm run store:assets
+```
+
+Writes seven files to `docs/store/`, each already at the size the store demands
+and each verified to be 24-bit RGB with no alpha channel — the two rules the
+devconsole enforces silently.
+
+| File | Where it goes |
+| --- | --- |
+| `dist/icons/icon-128.png` | Store icon 128×128 (built by `npm run build`) |
+| `01-pricing.png` … `05-guide.png` | Screenshots, 1280×800 — upload all five |
+| `promo-small-440x280.png` | Small promo tile — what shows in search results |
+| `promo-marquee-1400x560.png` | Marquee tile — needed only for homepage features |
+
+The screenshots frame the real panel, rendered from the shipping components
+against fixture data, so they cannot drift from the product the way a mockup
+does. Regenerate them whenever the UI changes; a listing showing an older build
+is a rejection reason on its own.
+
+Upload the screenshots in order. The first is the one most people will ever
+look at.
 
 ## 6. Justify the permissions
 

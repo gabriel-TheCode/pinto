@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pinto — Chrome Web Store assets</title>
+    <style>
+      /* Plain CSS on purpose. Tailwind's scan is pointed at `src/` so the panel
+         renders correctly; the frame around it must not depend on that scan. */
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
+
+      /* The store rejects transparency, so every canvas paints an opaque ground
+         of its own rather than inheriting one. */
+      .canvas {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: #0b0e14;
+        color: #fff;
+      }
+      /* Warm glow behind the panel: the brand is warm, the ground is not, and
+         the light has to come from somewhere for the panel to sit in the page. */
+      .canvas::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(120% 90% at 88% 18%, rgba(255, 145, 0, 0.30), transparent 58%),
+          radial-gradient(90% 80% at 66% 92%, rgba(223, 48, 28, 0.26), transparent 60%),
+          linear-gradient(150deg, #141821 0%, #0b0e14 62%);
+      }
+      .canvas > * { position: relative; }
+
+      /* --- brand mark: the extension icon's glyph, redrawn as cells so it stays
+             hard-edged at any size instead of being an upscaled 128px PNG --- */
+      .mark {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+        background: linear-gradient(135deg, #ff9100, #df301c);
+        box-shadow: 0 10px 30px rgba(223, 48, 28, 0.35);
+      }
+      .mark i { display: block; }
+      .mark i.on { background: #fff; }
+
+      .wordmark { font-weight: 800; letter-spacing: -0.02em; }
+      .tagline { color: #ffd9a3; font-weight: 600; }
+
+      /* --- 1280x800 screenshot --- */
+      .shot { display: flex; align-items: center; gap: 56px; padding: 0 64px; height: 100%; }
+      .shot .copy { width: 560px; flex: none; }
+      .shot .brandline { display: flex; align-items: center; gap: 12px; margin-bottom: 34px; }
+      .shot .copy > h1 {
+        margin: 0 0 18px;
+        font-size: 50px;
+        line-height: 1.06;
+        font-weight: 800;
+        letter-spacing: -0.028em;
+      }
+      .shot .copy > h1 em { font-style: normal; color: #ff9100; }
+      .shot .copy > p { margin: 0; font-size: 19px; line-height: 1.5; color: #c6cbd8; }
+      .shot .copy > ul {
+        margin: 30px 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .shot .copy > ul > li {
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 999px;
+        padding: 7px 14px;
+        font-size: 14px;
+        color: #e7eaf1;
+      }
+
+      /* The panel keeps its real docked width; scaling it would misrepresent
+         the density, which is the whole point of the product. */
+      .panelframe {
+        width: 460px;
+        flex: none;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.10);
+      }
+      /* The panel is a document of its own. Nothing from the dark ground may
+         cascade into it: `color` reaches form controls through Tailwind's
+         preflight, and `font` would resize the whole table. */
+      .panelframe, #root {
+        color: #141821;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      #root { width: 460px; background: #fff; overflow: hidden; }
+
+      /* --- promo tiles --- */
+      .tile { display: flex; flex-direction: column; justify-content: center; height: 100%; }
+      .tile.small { padding: 0 34px; }
+      .tile.marquee { padding: 0 90px; }
+      .tile .row { display: flex; align-items: center; }
+      .tile.small .row { gap: 16px; }
+      .tile.marquee .row { gap: 30px; }
+      .tile.small .wordmark { font-size: 46px; }
+      .tile.marquee .wordmark { font-size: 104px; }
+      .tile.small .tagline { margin: 16px 0 0; font-size: 17px; line-height: 1.3; }
+      .tile.marquee .tagline { margin: 26px 0 0; font-size: 34px; }
+      .tile.marquee .sub {
+        margin: 16px 0 0;
+        font-size: 20px;
+        color: #aeb5c4;
+        max-width: 900px;
+        line-height: 1.45;
+      }
+
+      /* A strip of real price rows: the marquee should show what the thing
+         does, not only what it is called. */
+      .chips { display: flex; gap: 10px; margin-top: 40px; flex-wrap: wrap; }
+      .chip {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 9px 13px;
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+      }
+      .chip b { font-weight: 700; color: #fff; }
+      .chip s { color: #7d8598; }
+      .chip u { text-decoration: none; color: #ff9100; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <div id="canvas"></div>
+    <script type="module" src="./store.tsx"></script>
+  </body>
+</html>
