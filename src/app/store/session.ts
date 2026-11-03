@@ -25,6 +25,11 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
           const last = restorable(settings.lastConfig);
           const at = typeof settings.lastAppliedAt === 'number' ? settings.lastAppliedAt : 0;
           if (last) set({ recent: { config: last, at } });
+          const dismissed = settings.dismissedNotices;
+          if (Array.isArray(dismissed)) {
+            const stored = dismissed.filter((id): id is string => typeof id === 'string');
+            set((state) => ({ dismissedNotices: [...new Set([...stored, ...state.dismissedNotices])] }));
+          }
         })
         .catch(() => undefined);
       if (auth.signedIn && context.packageName) await get().loadProducts();

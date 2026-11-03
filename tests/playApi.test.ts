@@ -416,6 +416,37 @@ describe('one-time products (purchase-option model)', () => {
     expect(catalogue.products[0]!.kind).toBe('onetime');
   });
 
+  it('reads an empty answer as an empty list, not as a failure', async () => {
+    // A collection with nothing in it can come back with no JSON body at all.
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes('/subscriptions')) return new Response('', { status: 200 });
+      if (url.includes('/inappproducts')) return new Response('', { status: 200 });
+      if (url.includes('/onetimeproducts')) return new Response('', { status: 200 });
+      return new Response('{}', { status: 404 });
+    });
+    const client = api(fetchImpl as unknown as typeof fetch);
+
+    const catalogue = await client.listProducts('com.example.app');
+    expect(catalogue.products).toEqual([]);
+    expect(catalogue.unavailable).toEqual([]);
+  });
+
+  it('calls a failure that is not Google\'s "unexpected", with what went wrong', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes('/subscriptions')) return ok({ subscriptions: [] });
+      if (url.includes('/inappproducts')) return ok({ inappproduct: [] });
+      // Not an array: reading it is a bug on Pinto's side, not a silent Google.
+      if (url.includes('/onetimeproducts')) return ok({ oneTimeProducts: 5 });
+      return new Response('{}', { status: 404 });
+    });
+    const client = api(fetchImpl as unknown as typeof fetch);
+
+    const catalogue = await client.listProducts('com.example.app');
+    const entry = catalogue.unavailable.find((item) => item.kind === 'onetime')!;
+    expect(entry.code).toBe('unexpected');
+    expect(entry.detail).toMatch(/TypeError/);
+  });
+
   it('stays quiet about the legacy endpoint once the newer model answered', async () => {
     // Google refuses `inappproducts` outright for apps on the new model.
     const fetchImpl = vi.fn(async (url: string) => {
@@ -435,7 +466,25 @@ describe('one-time products (purchase-option model)', () => {
     expect(catalogue.unavailable).toEqual([]);
   });
 
-  it('still warns about the legacy endpoint when nothing else loaded either', async () => {
+  it('stays quiet about the legacy endpoint when the newer model answered with no products', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes('/subscriptions')) return ok({ subscriptions: [] });
+      if (url.includes('/inappproducts')) {
+        return new Response(JSON.stringify({ error: { message: 'not permitted' } }), {
+          status: 403,
+        });
+      }
+      if (url.includes('/onetimeproducts')) return ok({});
+      return new Response('{}', { status: 404 });
+    });
+    const client = api(fetchImpl as unknown as typeof fetch);
+
+    const catalogue = await client.listProducts('com.example.app');
+    expect(catalogue.products).toEqual([]);
+    expect(catalogue.unavailable).toEqual([]);
+  });
+
+  it('still warns about the legacy endpoint when the newer model has no endpoint either', async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (url.includes('/subscriptions')) return ok({ subscriptions: [] });
       if (url.includes('/inappproducts')) {

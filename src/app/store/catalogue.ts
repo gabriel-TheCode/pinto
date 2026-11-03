@@ -6,6 +6,7 @@ export const createCatalogueSlice: Slice<CatalogueSlice> = (set, get) => ({
   products: [],
   unavailable: [],
   productsLoaded: false,
+  dismissedNotices: [],
   productKey: null,
   pricing: null,
   loadingPricing: false,
@@ -20,6 +21,11 @@ export const createCatalogueSlice: Slice<CatalogueSlice> = (set, get) => ({
       });
       set({ products, unavailable, productsLoaded: true, error: null });
 
+      // A retry from the workspace must not undo the user's choice of
+      // product or countries.
+      const current = get().productKey;
+      if (current && products.some((p) => productKeyOf(p) === current)) return;
+
       // If the URL already names a product, open it straight away — the user
       // clicked into it in Play Console, so making them pick it again is rude.
       const fromUrl = products.find(
@@ -32,6 +38,12 @@ export const createCatalogueSlice: Slice<CatalogueSlice> = (set, get) => ({
     } catch (error) {
       set({ productsLoaded: true, error: asPayload(error) });
     }
+  },
+
+  dismissNotice(id, { persist = true } = {}) {
+    set((state) => ({ dismissedNotices: [...new Set([...state.dismissedNotices, id])] }));
+    if (!persist) return;
+    void send({ type: 'settings/update', patch: { dismissedNotices: [id] } }).catch(() => undefined);
   },
 
   async selectProduct(key) {

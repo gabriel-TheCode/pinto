@@ -3,15 +3,22 @@ import { productKeyOf, useStore } from '@/app/store';
 import { useFormat, useT } from '@/i18n/react';
 import { errorText, productName } from '@/i18n/describe';
 import type { ProductKind } from '@/types';
-import { Badge, Callout, Icon } from '@/ui';
+import { Badge, Button, Callout, Icon, IconButton } from '@/ui';
 
 const KINDS: ProductKind[] = ['subscription', 'onetime', 'inapp'];
+
+/**
+ * Failures that say the same thing every time they happen. Closing one of
+ * these is remembered; closing a passing failure (an outage, a network drop, a
+ * bug) lasts for this panel only, so its next occurrence is reported again.
+ */
+const STABLE_CODES = new Set(['api/forbidden', 'api/not-found']);
 
 /**
  * Which product is being priced: the context every other decision applies
  * to, so it sits above the steps and is never more than one control away.
  */
-export function ProductBar() {
+export function ProductBar({ dismissible = true }: { dismissible?: boolean }) {
   const t = useT();
   const fmt = useFormat();
   const id = useId();
@@ -20,9 +27,30 @@ export function ProductBar() {
   const productKey = useStore((state) => state.productKey);
   const pricing = useStore((state) => state.pricing);
   const selectProduct = useStore((state) => state.selectProduct);
+  const loadProducts = useStore((state) => state.loadProducts);
+  const packageName = useStore((state) => state.context?.packageName ?? '');
+  const dismissed = useStore((state) => state.dismissedNotices);
+  const dismissNotice = useStore((state) => state.dismissNotice);
 
   const current = products.find((product) => productKeyOf(product) === productKey);
   const oneTime = products.filter((product) => product.kind !== 'subscription');
+
+  // A notice is closed for this app and this exact failure; another failure,
+  // or the same one on another app, shows again.
+  const unavailableId = `${packageName}:unavailable:${unavailable
+    .map((entry) => `${entry.kind}=${entry.code}`)
+    .sort()
+    .join(',')}`;
+  const noOneTimeId = `${packageName}:no-onetime`;
+  const showUnavailable = unavailable.length > 0 && !(dismissible && dismissed.includes(unavailableId));
+  const showNoOneTime =
+    !unavailable.length &&
+    products.length > 0 &&
+    oneTime.length === 0 &&
+    !dismissed.includes(noOneTimeId);
+  const technical = unavailable
+    .map((entry) => [entry.kind, entry.code, entry.detail].filter(Boolean).join(' · '))
+    .join('\n');
 
   return (
     <div className="flex shrink-0 flex-col gap-2 border-b border-ink-200 bg-white px-4 py-2.5">
@@ -77,22 +105,60 @@ export function ProductBar() {
         </div>
       )}
 
-      {unavailable.map((entry) => {
-        const reason = errorText(t, fmt, entry);
-        return (
-          <Callout
-            key={entry.kind}
-            tone="warn"
-            title={t('workspace.product.unavailableTitle', { group: t(`product.group.${entry.kind}`) })}
-          >
-            <p>{reason.title}</p>
-            <p>{t('workspace.product.unavailableNote')}</p>
-          </Callout>
-        );
-      })}
+      {/* One compact notice for every product type that could not be
+          listed, closable: it matters once, then it only takes room. */}
+      {showUnavailable && (
+        <Callout
+          tone="warn"
+          title={t('workspace.product.unavailableGroupTitle', { count: unavailable.length })}
+          {...(dismissible
+            ? {
+                onDismiss: () =>
+                  dismissNotice(unavailableId, {
+                    persist: unavailable.every((entry) => STABLE_CODES.has(entry.code)),
+                  }),
+                dismissLabel: t('action.dismiss'),
+              }
+            : {})}
+        >
+          <ul className="flex flex-col gap-0.5">
+            {unavailable.map((entry) => (
+              <li key={entry.kind}>
+                {t('workspace.product.unavailableItem', {
+                  group: t(`product.group.${entry.kind}`),
+                  reason: errorText(t, fmt, entry).title,
+                })}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-ink-600">{t('workspace.product.unavailableNote')}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-3">
+            {/* Without products the workspace offers its own reload. */}
+            {dismissible && (
+              <Button size="sm" icon="refresh" onClick={() => void loadProducts()}>
+                {t('action.retry')}
+              </Button>
+            )}
+            <details className="min-w-0 text-small text-ink-600">
+              <summary className="cursor-pointer select-none">{t('error.details')}</summary>
+              <pre className="mt-1 max-h-28 overflow-auto rounded-md bg-white/80 p-2 font-mono text-meta whitespace-pre-wrap text-ink-700">
+                {technical}
+              </pre>
+            </details>
+          </div>
+        </Callout>
+      )}
 
-      {!unavailable.length && products.length > 0 && oneTime.length === 0 && (
-        <p className="text-small text-ink-500">{t('workspace.product.noOneTime')}</p>
+      {showNoOneTime && (
+        <div className="flex items-start gap-1.5">
+          <p className="flex-1 text-small text-ink-500">{t('workspace.product.noOneTime')}</p>
+          <IconButton
+            icon="close"
+            size="sm"
+            label={t('action.dismiss')}
+            onClick={() => dismissNotice(noOneTimeId)}
+          />
+        </div>
       )}
     </div>
   );

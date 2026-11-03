@@ -53,6 +53,14 @@ export interface CatalogueSlice {
   /** Product types Pinto could not list, so the UI never implies "none exist". */
   unavailable: ProductCatalogue['unavailable'];
   productsLoaded: boolean;
+  /**
+   * Notices about the product list the user closed. Ids include the app and
+   * the exact failure, so a different problem — or the same one on another
+   * app — is shown again rather than silently hidden. `persist: false` keeps
+   * the close for this panel only.
+   */
+  dismissedNotices: string[];
+  dismissNotice(id: string, options?: { persist?: boolean }): void;
   productKey: string | null;
   pricing: ProductPricing | null;
   loadingPricing: boolean;

@@ -12,9 +12,13 @@ export const workspace = {
     one: 'Priced in {count} country',
     other: 'Priced in {count} countries',
   },
-  'workspace.product.unavailableTitle': '{group} could not be listed',
+  'workspace.product.unavailableGroupTitle': {
+    one: '{count} product type could not be listed',
+    other: '{count} product types could not be listed',
+  },
+  'workspace.product.unavailableItem': '{group}: {reason}',
   'workspace.product.unavailableNote':
-    'Products of this type are missing from the list, which does not mean there are none.',
+    'These products are missing from the list, which does not mean there are none.',
   'workspace.product.noOneTime':
     'This app has no one-time products. A lifetime purchase is a one-time product: create it in Play Console under Monetise with Play → Products, then reload.',
 

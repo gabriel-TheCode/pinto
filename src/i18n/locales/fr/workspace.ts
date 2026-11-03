@@ -14,9 +14,13 @@ export const workspace: Translation<typeof en> = {
     one: 'Prix défini dans {count} pays',
     other: 'Prix défini dans {count} pays',
   },
-  'workspace.product.unavailableTitle': '{group} : liste indisponible',
+  'workspace.product.unavailableGroupTitle': {
+    one: '{count} type de produit n’a pas pu être listé',
+    other: '{count} types de produits n’ont pas pu être listés',
+  },
+  'workspace.product.unavailableItem': '{group} : {reason}',
   'workspace.product.unavailableNote':
-    'Les produits de ce type n’apparaissent pas dans la liste, ce qui ne veut pas dire qu’il n’y en a aucun.',
+    'Ces produits manquent à la liste, ce qui ne veut pas dire qu’il n’y en a aucun.',
   'workspace.product.noOneTime':
     'Cette application n’a aucun produit ponctuel. Un achat à vie est un produit ponctuel : créez-le dans la Play Console sous Monétiser avec Play → Produits, puis rechargez.',
 

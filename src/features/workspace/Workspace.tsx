@@ -44,7 +44,8 @@ export function Workspace() {
         <div className="flex flex-col gap-3 p-4">
           <h1 className="text-title font-semibold text-ink-900">{t('workspace.listFailed.title')}</h1>
           {error && <ErrorPanel error={error} onRetry={() => void loadProducts()} />}
-          {!error && <ProductBar />}
+          {/* Here the notice is the whole answer, so it cannot be closed. */}
+          {!error && <ProductBar dismissible={false} />}
           {!error && (
             <Button icon="refresh" onClick={() => void loadProducts()}>
               {t('action.reload')}

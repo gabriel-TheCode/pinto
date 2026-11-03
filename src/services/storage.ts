@@ -58,6 +58,11 @@ export interface Settings {
   /** The last strategy applied, offered again (never pre-armed) on the next visit. */
   lastConfig?: StrategyConfig;
   lastAppliedAt?: number;
+  /**
+   * Notices the user closed; each id names the exact situation it was about.
+   * An update adds to the list rather than replacing it.
+   */
+  dismissedNotices?: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -117,7 +122,15 @@ export const storage = {
     return { ...DEFAULT_SETTINGS, ...stored };
   },
   async setSettings(patch: Partial<Settings>): Promise<Settings> {
-    const next = { ...(await storage.getSettings()), ...patch };
+    const stored = await storage.getSettings();
+    const next = { ...stored, ...patch };
+    // Each Play Console tab has its own panel with its own copy of this list:
+    // a close adds to what is stored, so one tab never undoes another's.
+    if (patch.dismissedNotices) {
+      next.dismissedNotices = [
+        ...new Set([...(stored.dismissedNotices ?? []), ...patch.dismissedNotices]),
+      ].slice(-100);
+    }
     await setLocal(LOCAL_KEYS.settings, next);
     return next;
   },

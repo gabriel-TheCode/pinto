@@ -218,7 +218,7 @@ export class PlayApi {
       this.listOneTimeProducts(packageName).catch((error) => {
         log.warn('api', 'Listing one-time products failed', error);
         unavailable.push({ kind: 'onetime', ...reasonOf(error) });
-        return [] as OneTimeProduct[];
+        return null;
       }),
     ]);
 
@@ -236,7 +236,7 @@ export class PlayApi {
       }
     }
     const seen = new Set<string>();
-    for (const product of oneTimes) {
+    for (const product of oneTimes ?? []) {
       seen.add(product.productId);
       for (const option of product.purchaseOptions ?? []) {
         summaries.push({
@@ -262,7 +262,7 @@ export class PlayApi {
         regionCount: Object.keys(iap.prices ?? {}).length,
       });
     }
-    return { products: summaries, unavailable: prune(unavailable, oneTimes.length > 0) };
+    return { products: summaries, unavailable: prune(unavailable, oneTimes !== null) };
   }
 
   private async listSubscriptions(packageName: string): Promise<Subscription[]> {
@@ -274,8 +274,9 @@ export class PlayApi {
       const body = await this.request<{ subscriptions?: Subscription[]; nextPageToken?: string }>(
         `${BASE}/applications/${encodeURIComponent(packageName)}/subscriptions?${query}`,
       );
-      out.push(...(body.subscriptions ?? []));
-      pageToken = body.nextPageToken;
+      // An empty body (no JSON at all) is an empty page, not a crash.
+      out.push(...(body?.subscriptions ?? []));
+      pageToken = body?.nextPageToken;
     } while (pageToken);
     return out;
   }
@@ -296,8 +297,8 @@ export class PlayApi {
         inappproduct?: InAppProduct[];
         tokenPagination?: { nextPageToken?: string };
       }>(`${BASE}/applications/${encodeURIComponent(packageName)}/inappproducts?${query}`);
-      out.push(...(body.inappproduct ?? []));
-      token = body.tokenPagination?.nextPageToken;
+      out.push(...(body?.inappproduct ?? []));
+      token = body?.tokenPagination?.nextPageToken;
       if (!token) break;
     }
     return out;
@@ -311,10 +312,13 @@ export class PlayApi {
    * resource overview shows it nested under `monetization/`. Rather than pick
    * one and ship a 404 to every user, Pinto probes the candidates once per
    * session and remembers which one answered.
+   *
+   * Returns null when no spelling exists for this app, so an empty answer
+   * (no one-time products) stays distinct from no answer at all.
    */
-  private async listOneTimeProducts(packageName: string): Promise<OneTimeProduct[]> {
+  private async listOneTimeProducts(packageName: string): Promise<OneTimeProduct[] | null> {
     const segment = await this.oneTimeSegment(packageName);
-    if (!segment) return [];
+    if (!segment) return null;
 
     const out: OneTimeProduct[] = [];
     let pageToken: string | undefined;
@@ -325,8 +329,8 @@ export class PlayApi {
         oneTimeProducts?: OneTimeProduct[];
         nextPageToken?: string;
       }>(`${BASE}/applications/${encodeURIComponent(packageName)}/${segment}?${query}`);
-      out.push(...(body.oneTimeProducts ?? []));
-      pageToken = body.nextPageToken;
+      out.push(...(body?.oneTimeProducts ?? []));
+      pageToken = body?.nextPageToken;
       if (!pageToken) break;
     }
     return out;
@@ -743,15 +747,16 @@ export class PlayApi {
  * checking permissions — sending the developer to hunt a configuration problem
  * that does not exist, on an app whose other two catalogues loaded fine.
  *
- * The failure is only suppressed when the newer API actually returned
- * products, and it still goes to the operation log. If nothing loaded, the
- * warning stands: an empty list must never be mistaken for an empty catalogue.
+ * The failure is suppressed whenever the newer API answered, products or not:
+ * an answer with no products means the app has none, and the refusal still
+ * goes to the operation log. Only when the newer API did not answer either
+ * does the warning stand.
  */
 function prune(
   unavailable: ProductCatalogue['unavailable'],
-  oneTimeModelWorked: boolean,
+  oneTimeModelAnswered: boolean,
 ): ProductCatalogue['unavailable'] {
-  if (!oneTimeModelWorked) return unavailable;
+  if (!oneTimeModelAnswered) return unavailable;
   return unavailable.filter((entry) => {
     const superseded =
       entry.kind === 'inapp' && (entry.code === 'api/forbidden' || entry.code === 'api/not-found');
@@ -812,12 +817,26 @@ function planDetails(plan: BasePlan): ProductDetails {
   return details;
 }
 
-/** Why a product type could not be listed, as a code the panel can word. */
-function reasonOf(error: unknown): { code: string; params?: Record<string, string | number> } {
+/**
+ * Why a product type could not be listed, as a code the panel can word, plus
+ * the technical detail for the disclosure. An error that is not Google's (a
+ * bug, an unexpected response) is said to be unexpected — never "Google did
+ * not answer", which would send the user to check a network that is fine.
+ */
+function reasonOf(error: unknown): {
+  code: string;
+  params?: Record<string, string | number>;
+  detail?: string;
+} {
   if (error instanceof PintoError) {
-    return error.params ? { code: error.code, params: error.params } : { code: error.code };
+    const reason: { code: string; params?: Record<string, string | number>; detail?: string } = {
+      code: error.code,
+    };
+    if (error.params) reason.params = error.params;
+    if (error.detail) reason.detail = error.detail.slice(0, 300);
+    return reason;
   }
-  return { code: 'api/no-answer' };
+  return { code: 'unexpected', detail: error instanceof Error ? `${error.name}: ${error.message}` : String(error) };
 }
 
 /** Turns a Google API error envelope into something a developer can act on. */

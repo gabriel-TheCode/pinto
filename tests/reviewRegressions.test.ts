@@ -186,6 +186,27 @@ describe('store', () => {
     expect(sent.some((r) => r.type === 'settings/update')).toBe(false);
   });
 
+  it('keeps the chosen product and countries when the product list is retried', async () => {
+    const { useStore } = await import('@/app/store');
+    const summary = { kind: 'subscription', productId: 'beta', basePlanId: 'monthly', label: 'beta', regionCount: 2 };
+    useStore.setState({
+      context: { ...CONTEXT, productId: 'premium' } as never,
+      productKey: 'subscription:beta:monthly',
+      pricing: pricingOf('beta'),
+      selection: new Set(['FR']),
+    });
+    auto = (r) =>
+      r.type === 'products/list'
+        ? { products: [{ ...summary, productId: 'premium', label: 'premium' }, summary], unavailable: [] }
+        : pricingOf('premium');
+    await useStore.getState().loadProducts();
+
+    const state = useStore.getState();
+    expect(state.productKey).toBe('subscription:beta:monthly');
+    expect([...state.selection]).toEqual(['FR']);
+    expect(sent.some((r) => r.type === 'products/pricing')).toBe(false);
+  });
+
   it('keeps the strategy on screen after a restore, which never used it', async () => {
     const { useStore } = await import('@/app/store');
     useStore.setState({
