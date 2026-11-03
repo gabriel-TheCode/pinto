@@ -43,7 +43,7 @@ export const settings: Translation<typeof en> = {
 
   'settings.storage.title': 'Ce que Pinto conserve',
   'settings.storage.machine':
-    'Sur cet ordinateur : votre ID client OAuth, vos réglages (dont la dernière modification appliquée), vos modèles et groupes, l’historique de vos 50 dernières opérations avec les prix avant et après chacune, le nom de package associé à chaque application de la Play Console, un journal technique, et la position de la fenêtre du panneau.',
+    'Sur cet ordinateur : votre ID client OAuth, vos réglages (dont la dernière modification appliquée et les avertissements fermés), vos modèles et groupes, l’historique de vos 50 dernières opérations avec les prix avant et après chacune, le nom de package associé à chaque application de la Play Console, un journal technique, et la position de la fenêtre du panneau.',
   'settings.storage.session':
     'En mémoire, pour cette session du navigateur uniquement : le jeton d’accès, ainsi que votre nom, votre adresse e-mail et votre photo.',
   'settings.storage.nowhere':

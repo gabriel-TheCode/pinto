@@ -46,8 +46,10 @@ All storage is local to your browser. None of it is transmitted anywhere.
   was not updated, the reason, including Google's own message
 - A map of Play Console's internal app id to the package name you confirmed
 - Custom country groups you create
-- Your settings: the interface language (Automatic, English or French), and the
-  last change you applied and when, so Pinto can offer it again
+- Your settings: the interface language (Automatic, English or French), the
+  last change you applied and when, so Pinto can offer it again, and the
+  warnings you closed, each recorded as the app's package name and an error
+  code so it stays closed
 - A technical log of API operations. It records region codes, product ids, API
   status codes and Google's error messages. Pinto does not write prices into
   it, though an error message from Google may quote one.
