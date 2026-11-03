@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Pinto — bulk pricing for Google Play",
-  "short_name": "Pinto",
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extShortName__",
   "version": "1.0.0",
-  "description": "Bulk pricing, without the bulk work. Edit Google Play regional prices across every country from one review-before-apply workflow.",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
   "minimum_chrome_version": "114",
   "action": {
-    "default_title": "Pinto",
+    "default_title": "__MSG_actionTitle__",
     "default_popup": "src/popup/index.html",
     "default_icon": {
       "16": "icons/icon-16.png",

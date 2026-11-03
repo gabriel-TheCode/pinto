@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeChangeSet, describeStrategy, writableChanges } from '@/domain/pricing/computeChangeSet';
+import { computeChangeSet, writableChanges } from '@/domain/pricing/computeChangeSet';
+import { validateNewPrice } from '@/domain/pricing/validate';
 import { DEFAULT_ROUNDING } from '@/domain/pricing/rounding';
 import { unitsToMicros } from '@/domain/money/money';
 import type { ProductPricing, RoundingConfig, StrategyConfig } from '@/types';
@@ -55,7 +56,25 @@ describe('selection', () => {
     const india = result.changes.find((c) => c.regionCode === 'IN')!;
     expect(india.currentMicros).toBeNull();
     expect(india.status).toBe('invalid');
-    expect(india.issues[0]!.code).toBe('no-current-price');
+    expect(india.issues).toEqual([{ level: 'error', code: 'not-sold' }]);
+  });
+
+  it('blocks a selected country the product is not sold in, whatever the strategy', () => {
+    // A fixed price needs no current price, but Play still cannot price a
+    // country the product does not offer — say so before review, not at apply.
+    const result = computeChangeSet({
+      product,
+      selection: ['US', 'IN'],
+      config: config({
+        strategy: { kind: 'fixed', micros: unitsToMicros(9.99), baseRegion: 'US', convert: false },
+        rounding: noRounding,
+      }),
+    });
+    const india = result.changes.find((c) => c.regionCode === 'IN')!;
+    expect(india.status).toBe('invalid');
+    expect(india.newMicros).toBeNull();
+    expect(india.issues.map((i) => i.code)).toEqual(['not-sold']);
+    expect(writableChanges(result).map((c) => c.regionCode)).toEqual(['US']);
   });
 
   it('sorts rows by country name so the table is scannable', () => {
@@ -138,7 +157,7 @@ describe('fixed price with conversion', () => {
     });
     const india = result.changes.find((c) => c.regionCode === 'IN')!;
     expect(india.status).toBe('invalid');
-    expect(india.issues.some((issue) => issue.code === 'no-rate')).toBe(true);
+    expect(india.issues).toContainEqual({ level: 'error', code: 'no-rate', params: { currency: 'INR' } });
     expect(india.newMicros).toBeNull();
   });
 
@@ -189,8 +208,42 @@ describe('copy and tiers', () => {
       unitsToMicros(4.99 * 0.6 * (24.9 / 4.99)),
       -3,
     );
-    // FR was selected but not assigned to a tier, so it is left alone.
-    expect(result.changes.find((c) => c.regionCode === 'FR')!.status).toBe('invalid');
+    // FR was selected but not assigned to a tier: left alone, which is not an error.
+    const fr = result.changes.find((c) => c.regionCode === 'FR')!;
+    expect(fr.status).toBe('unchanged');
+    expect(fr.newMicros).toBe(fr.currentMicros);
+    expect(fr.issues).toEqual([{ level: 'info', code: 'untiered' }]);
+    expect(result.summary.invalid).toBe(0);
+  });
+
+  it('blocks a country assigned to a tier that has no share, naming the tier', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['BR'],
+      config: config({
+        strategy: {
+          kind: 'tiers',
+          baseRegion: 'US',
+          tiers: { A: 1 },
+          assignment: { BR: 'Ghost' },
+          convert: true,
+        },
+      }),
+    });
+    const br = result.changes.find((c) => c.regionCode === 'BR')!;
+    expect(br.status).toBe('invalid');
+    expect(br.issues).toEqual([{ level: 'error', code: 'tier-undefined', params: { tier: 'Ghost' } }]);
+  });
+
+  it('blocks tiers when the reference country has no price and no anchor is set', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['BR'],
+      config: config({
+        strategy: { kind: 'tiers', baseRegion: 'IN', tiers: { A: 1 }, assignment: { BR: 'A' }, convert: true },
+      }),
+    });
+    expect(result.changes.find((c) => c.regionCode === 'BR')!.issues[0]!.code).toBe('no-base-price');
   });
 });
 
@@ -344,7 +397,9 @@ describe('tier anchor and overrides — one-pass pricing', () => {
       }),
     });
     // Not charm-rounded to 5.49, not clamped to the 3.00 ceiling.
-    expect(result.changes.find((c) => c.regionCode === 'FR')!.newMicros).toBe(unitsToMicros(5.42));
+    const fr = result.changes.find((c) => c.regionCode === 'FR')!;
+    expect(fr.newMicros).toBe(unitsToMicros(5.42));
+    expect(fr.issues[0]).toEqual({ level: 'info', code: 'override' });
   });
 
   it('only overrides selected regions', () => {
@@ -385,7 +440,157 @@ describe('formulas', () => {
     });
     const us = result.changes.find((c) => c.regionCode === 'US')!;
     expect(us.status).toBe('invalid');
-    expect(us.issues[0]!.code).toBe('formula-error');
+    // A code plus the parser's reason, worded by the interface.
+    expect(us.issues[0]).toEqual({
+      level: 'error',
+      code: 'formula-error',
+      params: { reason: 'division-by-zero' },
+    });
+  });
+
+  it('passes the parser’s params through with the reason', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['US'],
+      config: config({ strategy: { kind: 'formula', expression: 'sqrt(current)', baseRegion: 'US' } }),
+    });
+    expect(result.changes.find((c) => c.regionCode === 'US')!.issues[0]!.params).toEqual({
+      reason: 'unknown-function',
+      name: 'sqrt',
+    });
+  });
+
+  it('converts base into each market’s currency (implied rates)', () => {
+    // base = US 4.99 USD. Japan bills in yen: base there is ~800 JPY, not 4.99 JPY.
+    const result = computeChangeSet({
+      product,
+      selection: ['US', 'JP'],
+      config: config({
+        strategy: { kind: 'formula', expression: 'base * 2', baseRegion: 'US' },
+        rounding: noRounding,
+      }),
+    });
+    expect(result.changes.find((c) => c.regionCode === 'US')!.newMicros).toBe(unitsToMicros(9.98));
+    expect(result.changes.find((c) => c.regionCode === 'JP')!.newMicros).toBe(unitsToMicros(1600));
+  });
+
+  it('converts base with Google’s table when one is given', () => {
+    const table = {
+      baseCurrency: 'USD',
+      baseMicros: unitsToMicros(4.99),
+      rates: new Map([
+        ['USD', 1],
+        ['JPY', 150],
+      ]),
+      missing: [],
+    };
+    const result = computeChangeSet({
+      product,
+      selection: ['JP'],
+      config: config({
+        strategy: { kind: 'formula', expression: 'base * 2', baseRegion: 'US' },
+        rounding: noRounding,
+      }),
+      conversionTable: table,
+    });
+    // 4.99 USD × 150 × 2 = 1497 JPY.
+    expect(result.changes.find((c) => c.regionCode === 'JP')!.newMicros).toBe(unitsToMicros(1497));
+  });
+
+  it('blocks a market whose currency has no rate when the formula uses base', () => {
+    const table = {
+      baseCurrency: 'USD',
+      baseMicros: unitsToMicros(4.99),
+      rates: new Map([['USD', 1]]),
+      missing: [],
+    };
+    const result = computeChangeSet({
+      product,
+      selection: ['JP'],
+      config: config({ strategy: { kind: 'formula', expression: 'base', baseRegion: 'US' } }),
+      conversionTable: table,
+    });
+    const jp = result.changes.find((c) => c.regionCode === 'JP')!;
+    expect(jp.status).toBe('invalid');
+    expect(jp.issues).toEqual([{ level: 'error', code: 'no-rate', params: { currency: 'JPY' } }]);
+  });
+
+  it('needs no rate when the formula only uses current', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['JP'],
+      config: config({
+        strategy: { kind: 'formula', expression: 'current + 100', baseRegion: 'XX' },
+        rounding: noRounding,
+      }),
+    });
+    expect(result.changes.find((c) => c.regionCode === 'JP')!.newMicros).toBe(unitsToMicros(900));
+  });
+
+  it('blocks base when the reference country has no price', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['US'],
+      config: config({ strategy: { kind: 'formula', expression: 'base', baseRegion: 'IN' } }),
+    });
+    expect(result.changes.find((c) => c.regionCode === 'US')!.issues).toEqual([
+      { level: 'error', code: 'no-base-price' },
+    ]);
+  });
+});
+
+describe('maximum increase and decrease', () => {
+  it('holds a rise to the maximum increase, never above it', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['US'],
+      config: config({ strategy: { kind: 'multiplier', factor: 2 }, rounding: noRounding, maxIncrease: 0.2 }),
+    });
+    const us = result.changes.find((c) => c.regionCode === 'US')!;
+    // 4.99 × 1.2 = 5.988 → rounded down to 5.98, the last cent within the limit.
+    expect(us.newMicros).toBe(unitsToMicros(5.98));
+    expect(us.issues).toContainEqual({ level: 'info', code: 'clamped-increase', params: { limit: 0.2 } });
+    expect(us.status).toBe('changed');
+  });
+
+  it('holds a fall to the maximum decrease, never below it', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['US'],
+      config: config({ strategy: { kind: 'percentage', percent: -50 }, rounding: noRounding, maxDecrease: 0.1 }),
+    });
+    const us = result.changes.find((c) => c.regionCode === 'US')!;
+    // 4.99 × 0.9 = 4.491 → rounded up to 4.50.
+    expect(us.newMicros).toBe(unitsToMicros(4.5));
+    expect(us.issues).toContainEqual({ level: 'info', code: 'clamped-decrease', params: { limit: 0.1 } });
+  });
+
+  it('respects the currency’s granularity when clamping', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['JP'],
+      // 800 × 1.1245 = 899.6, which a plain rounding would push to 900.
+      config: config({ strategy: { kind: 'multiplier', factor: 2 }, rounding: noRounding, maxIncrease: 0.1245 }),
+    });
+    const jp = result.changes.find((c) => c.regionCode === 'JP')!;
+    expect(jp.newMicros).toBe(unitsToMicros(899));
+    expect(jp.issues.map((i) => i.code)).toContain('clamped-increase');
+  });
+
+  it('leaves moves inside the limits alone', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['US'],
+      config: config({
+        strategy: { kind: 'percentage', percent: 10 },
+        rounding: noRounding,
+        maxIncrease: 0.2,
+        maxDecrease: 0.2,
+      }),
+    });
+    const us = result.changes.find((c) => c.regionCode === 'US')!;
+    expect(us.newMicros).toBe(unitsToMicros(5.49));
+    expect(us.issues.map((i) => i.code)).not.toContain('clamped-increase');
   });
 });
 
@@ -402,7 +607,7 @@ describe('guard rails and validation', () => {
     });
     const us = result.changes.find((c) => c.regionCode === 'US')!;
     expect(us.newMicros).toBe(unitsToMicros(9.99));
-    expect(us.issues.some((issue) => issue.code === 'above-ceiling')).toBe(true);
+    expect(us.issues).toContainEqual({ level: 'info', code: 'above-ceiling' });
   });
 
   it('warns on very large moves without blocking them', () => {
@@ -413,7 +618,7 @@ describe('guard rails and validation', () => {
     });
     const us = result.changes.find((c) => c.regionCode === 'US')!;
     expect(us.status).toBe('changed');
-    expect(us.issues.some((issue) => issue.code === 'large-increase')).toBe(true);
+    expect(us.issues).toContainEqual({ level: 'warning', code: 'large-increase', params: { threshold: 0.5 } });
     expect(result.summary.warnings).toBe(1);
   });
 
@@ -460,10 +665,40 @@ describe('summary and helpers', () => {
     expect(writableChanges(result).map((c) => c.regionCode)).toEqual(['US']);
   });
 
-  it('describes strategies for the history log', () => {
-    expect(describeStrategy(config({ strategy: { kind: 'percentage', percent: -15 } }))).toBe('-15%');
-    expect(describeStrategy(config({ strategy: { kind: 'copy', fromRegion: 'US', convert: true } }))).toBe(
-      'Copy from US',
-    );
+  it('never puts prose in an issue — only codes and params', () => {
+    const result = computeChangeSet({
+      product,
+      selection: ['US', 'IN', 'JP', 'FR'],
+      config: config({ strategy: { kind: 'multiplier', factor: 3 }, ceilingMicros: unitsToMicros(10) }),
+    });
+    for (const issue of result.changes.flatMap((c) => c.issues)) {
+      expect(Object.keys(issue).sort()).toEqual(
+        issue.params ? ['code', 'level', 'params'] : ['code', 'level'],
+      );
+    }
+  });
+});
+
+describe('validateNewPrice', () => {
+  it('names the currency and its decimals when a price is too precise', () => {
+    expect(validateNewPrice(unitsToMicros(4.995), 'USD', null).issues).toEqual([
+      { level: 'error', code: 'granularity-minor', params: { currency: 'USD', decimals: 2 } },
+    ]);
+    expect(validateNewPrice(unitsToMicros(800.5), 'JPY', null).issues).toEqual([
+      { level: 'error', code: 'granularity-whole', params: { currency: 'JPY' } },
+    ]);
+  });
+
+  it('warns about a currency it has no decimal rule for', () => {
+    const result = validateNewPrice(unitsToMicros(4.99), 'XYZ', null);
+    expect(result.ok).toBe(true);
+    expect(result.issues).toEqual([{ level: 'warning', code: 'unknown-currency', params: { currency: 'XYZ' } }]);
+  });
+
+  it('blocks zero and flags large moves both ways', () => {
+    expect(validateNewPrice(0, 'USD', null).issues).toEqual([{ level: 'error', code: 'not-positive' }]);
+    expect(validateNewPrice(unitsToMicros(1), 'USD', unitsToMicros(4.99)).issues).toEqual([
+      { level: 'warning', code: 'large-decrease', params: { threshold: 0.5 } },
+    ]);
   });
 });

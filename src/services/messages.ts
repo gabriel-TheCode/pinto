@@ -2,9 +2,11 @@ import type {
   ChangeSet,
   OperationRecord,
   PageContext,
+  ProductDetails,
   ProductKind,
   ProductPricing,
   RegionCode,
+  StrategyConfig,
 } from '@/types';
 import type { CustomGroup } from '@/domain/regions/groups';
 
@@ -28,7 +30,9 @@ export interface ProductSummary {
   kind: ProductKind;
   productId: string;
   basePlanId: string;
+  /** Technical label built from ids only; the interface adds the words. */
   label: string;
+  details?: ProductDetails;
   regionCount: number;
 }
 
@@ -41,7 +45,7 @@ export interface ProductSummary {
  */
 export interface ProductCatalogue {
   products: ProductSummary[];
-  unavailable: { kind: ProductKind; reason: string; code?: string }[];
+  unavailable: { kind: ProductKind; code: string; params?: Record<string, string | number> }[];
 }
 
 export interface ApplyRequest {
@@ -51,15 +55,31 @@ export interface ApplyRequest {
   basePlanId: string;
   /** Region -> new price in micros. Currency comes from the product. */
   updates: Record<RegionCode, number>;
+  /**
+   * What the user reviewed for each region: its currency and its price at the
+   * time. The worker re-reads the product before writing and refuses when
+   * either no longer matches, rather than write over a change made meanwhile.
+   */
+  expected?: Record<RegionCode, { currency: string; micros: number | null }>;
   dryRun: boolean;
-  strategyLabel: string;
+  /** Recorded in history so the operation can be described in any language. */
+  config?: StrategyConfig;
+  /** Set when this request restores the snapshot of another operation. */
+  revertOf?: string;
 }
 
+/**
+ * Where an apply stands. Numbers only — the panel words each phase in the
+ * user's language. `rejected` is how many countries Google named in its
+ * refusal while Pinto isolates the rest.
+ */
 export interface ApplyProgress {
   phase: 'preparing' | 'writing' | 'isolating' | 'verifying' | 'done';
-  message: string;
   completed: number;
   total: number;
+  rejected?: number;
+  /** True when this run restores an earlier snapshot. */
+  revert?: boolean;
 }
 
 export interface ApplyResult {
@@ -90,7 +110,8 @@ export type Request =
       referenceCurrency: string;
     }
   | { type: 'history/list' }
-  | { type: 'history/revert'; operationId: string }
+  /** `regions` limits the restore, e.g. to countries not edited since. */
+  | { type: 'history/revert'; operationId: string; regions?: RegionCode[] }
   | { type: 'history/clear' }
   | { type: 'presets/list' }
   | { type: 'presets/save'; preset: unknown }
@@ -101,18 +122,22 @@ export type Request =
   | { type: 'groups/save'; group: unknown }
   | { type: 'groups/delete'; id: string }
   | { type: 'panel/close' }
+  | { type: 'apply/status' }
   | { type: 'log/list' };
 
 export type Response<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: PintoErrorPayload };
 
+/**
+ * An error as it crosses contexts. The interface renders `code` and `params`
+ * in the user's language; `message` is the English technical description for
+ * the log, and `detail` (Google's raw words) sits behind a disclosure.
+ */
 export interface PintoErrorPayload {
   code: string;
+  params?: Record<string, string | number>;
   message: string;
-  /** Short, user-facing next step. Never a stack trace. */
-  hint?: string;
-  /** Technical detail, only surfaced behind "Details" in the UI. */
   detail?: string;
   retryable: boolean;
 }
@@ -141,6 +166,8 @@ export interface ResponseMap {
   'groups/save': CustomGroup[];
   'groups/delete': CustomGroup[];
   'panel/close': null;
+  /** The apply running in the worker right now, if any — survives a panel reload. */
+  'apply/status': ApplyProgress | null;
   'log/list': LogEntry[];
 }
 

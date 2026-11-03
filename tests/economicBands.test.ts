@@ -97,6 +97,17 @@ describe('generating a ladder', () => {
     expect(ladder.anchorMicros).toBe(unitsToMicros(9.99));
   });
 
+  it('names tiers in the user’s language when given a namer', () => {
+    const ladder = generateLadder({
+      curve: 'balanced',
+      baseRegion: 'US',
+      nameOf: (band) => `Palier ${band.id}`,
+    });
+    const names = ECONOMIC_BANDS.map((band) => `Palier ${band.id}`);
+    expect(Object.keys(ladder.tiers)).toEqual(names);
+    for (const tier of Object.values(ladder.assignment)) expect(names).toContain(tier);
+  });
+
   it('omits the anchor entirely when none is given, falling back to the live price', () => {
     const ladder = generateLadder({ curve: 'balanced', baseRegion: 'US' });
     expect(ladder.anchorMicros).toBeUndefined();

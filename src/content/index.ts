@@ -1,6 +1,7 @@
 import { parsePlayConsoleUrl } from '@/services/playConsoleUrl';
 import { sniffPackageName } from './packageSniffer';
-import { injectInlineEntryPoint, injectUi, type InjectedUi } from './ui';
+import { watchLocale } from '@/i18n/preference';
+import { injectInlineEntryPoint, injectUi, setContentLocale, type InjectedUi } from './ui';
 
 /**
  * Content script: detect, inject, relay. Nothing else.
@@ -86,7 +87,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // --- Keyboard ----------------------------------------------------------------
 
 window.addEventListener('keydown', (event) => {
-  const target = event.target as HTMLElement | null;
+  // composedPath reaches into shadow roots: Play Console renders some fields
+  // inside them, where event.target is only the host element.
+  const target = (event.composedPath()[0] ?? event.target) as HTMLElement | null;
   const typing =
     target?.isContentEditable ||
     ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '');
@@ -96,6 +99,9 @@ window.addEventListener('keydown', (event) => {
     ui?.toggle();
   }
 });
+
+// Labels follow the language chosen in any Pinto surface, live.
+watchLocale((locale) => setContentLocale(locale));
 
 sync();
 watchNavigation();

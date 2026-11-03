@@ -20,14 +20,30 @@ const outDir = resolve(root, 'docs/screenshots');
 const port = 5179;
 const base = `http://localhost:${port}`;
 
-const SHOTS = [
-  { file: 'pricing.png', query: '', height: 700 },
-  { file: 'strategy-tiers.png', query: '?screen=strategy&strategy=tiers', height: 760 },
-  { file: 'review.png', query: '?screen=review&strategy=tiers', height: 700 },
-  { file: 'guide.png', query: '?screen=guide', height: 760 },
+const BASE_SHOTS = [
+  { name: 'strategy', query: 'screen=strategy', height: 760 },
+  { name: 'strategy-tiers', query: 'screen=strategy&strategy=tiers', height: 760 },
+  { name: 'markets', query: 'screen=markets&strategy=tiers', height: 760 },
+  { name: 'review', query: 'screen=review&strategy=tiers', height: 760 },
+  { name: 'result', query: 'screen=result', height: 700 },
+  { name: 'history', query: 'screen=history', height: 700 },
+  { name: 'settings', query: 'screen=settings', height: 760 },
+  { name: 'help', query: 'screen=help', height: 760 },
 ];
 
-mkdirSync(outDir, { recursive: true });
+// Every screen in every supported language: the README uses the English
+// set, and the French set is the visual check that nothing is left in
+// English and nothing overflows with longer strings.
+const LOCALES = (process.env.PINTO_LOCALES ?? 'en,fr').split(',');
+const SHOTS = LOCALES.flatMap((locale) =>
+  BASE_SHOTS.map((shot) => ({
+    file: locale === 'en' ? `${shot.name}.png` : `${locale}/${shot.name}.png`,
+    query: `?${shot.query}&locale=${locale}`,
+    height: shot.height,
+  })),
+);
+
+for (const locale of LOCALES) mkdirSync(locale === 'en' ? outDir : resolve(outDir, locale), { recursive: true });
 
 const server = spawn(
   'npx',

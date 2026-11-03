@@ -1,0 +1,191 @@
+/** Step 1, "Change": how prices change, presets, rounding and limits. */
+export const strategy = {
+  'strategy.title': 'How should prices change?',
+  'strategy.subtitle': 'Choose one change for {product}. You pick the countries next.',
+  'strategy.kind.label': 'Type of change',
+  'strategy.next.hint': 'Choose how prices change first.',
+  'strategy.next.invalid': 'Correct the highlighted value to continue.',
+  'strategy.amount.invalid': 'Enter a price greater than zero.',
+
+  'strategy.start.title': 'Start from',
+  'strategy.recent.text': 'Your last change: {summary} · {when}',
+  'strategy.recent.use': 'Use again',
+  'strategy.recent.compounds':
+    'Today’s prices already include this change: using it again applies it a second time, on top.',
+
+  'strategy.presets.saved': 'Preset “{name}” saved',
+  'strategy.presets.applied': 'Preset “{name}” loaded — check it, then continue',
+  'strategy.presets.imported': { one: '{count} preset imported', other: '{count} presets imported' },
+  'strategy.presets.label': 'Saved preset',
+  'strategy.presets.choose': 'Choose a preset…',
+  'strategy.presets.use': 'Use',
+  'strategy.presets.manage': 'Saved presets',
+  'strategy.presets.count': { one: '{count} preset', other: '{count} presets' },
+  'strategy.presets.empty':
+    'No presets yet. Save a change to reuse it on other products and apps, or import a file.',
+  'strategy.presets.regions': {
+    one: '{summary} · {count} country',
+    other: '{summary} · {count} countries',
+  },
+  'strategy.presets.anyRegions': '{summary} · countries selected when used',
+  'strategy.presets.delete': 'Delete preset “{name}”',
+  'strategy.presets.deleteTitle': 'Delete “{name}”?',
+  'strategy.presets.deleteBody':
+    'The preset is removed from this browser. Prices already applied are not affected.',
+  'strategy.presets.export': 'Export JSON',
+  'strategy.presets.import': 'Import JSON',
+  'strategy.presets.save': 'Save as preset',
+  'strategy.presets.saveNeutral': 'Choose how prices change before saving a preset.',
+  'strategy.presets.saveTitle': 'Save as preset',
+  'strategy.presets.name': 'Name',
+  'strategy.presets.namePlaceholder': 'Launch discount',
+  'strategy.presets.nameRequired': 'Give the preset a name.',
+  'strategy.presets.description': 'Description (optional)',
+  'strategy.presets.withSelection': {
+    one: 'Include the {count} selected country',
+    other: 'Include the {count} selected countries',
+  },
+  'strategy.presets.withoutSelection': 'The preset will apply to whatever countries are selected when it is used.',
+
+  'strategy.base.option': '{country} · {price}',
+  'strategy.base.showAll': 'All countries ({count})',
+  'strategy.base.showKey': 'Key countries only',
+
+  'strategy.percentage.label': 'Change by',
+  'strategy.percentage.hint': 'Applied to each country’s current price. A negative number lowers prices.',
+  'strategy.percentage.invalid': 'Enter a percentage between {min} and {max}.',
+  'strategy.percentage.quick': 'Common changes',
+
+  'strategy.multiplier.label': 'Factor',
+  'strategy.multiplier.hint': 'For example, {factor} means {delta} on every price.',
+  'strategy.multiplier.invalid': 'Enter a factor between {min} and {max}.',
+
+  'strategy.fixed.amount': 'Price',
+  'strategy.fixed.base': 'Reference country',
+
+  'strategy.copy.from': 'Country to copy',
+  'strategy.copy.current': 'Current price: {price}.',
+
+  'strategy.convert.title': 'Currency conversion',
+  'strategy.convert.on': 'On',
+  'strategy.convert.off': 'Off',
+  'strategy.convert.label': 'Convert into each country’s currency',
+  'strategy.convert.description':
+    'Uses Google’s exchange rates for this product, or the rates its current prices imply.',
+  'strategy.convert.offTitle': 'The same number in every currency',
+  'strategy.convert.offBody':
+    'Conversion is off, so the number is written as is everywhere — 4.99 dollars and 4.99 yen alike. This is rarely what you want.',
+  'strategy.convert.turnOn': 'Turn on conversion',
+
+  'strategy.formula.label': 'Formula',
+  'strategy.formula.hint': 'Calculated for each country, in its own currency.',
+  'strategy.formula.examples': 'Example formulas',
+  'strategy.formula.help':
+    '<code>current</code> is this country’s current price. <code>base</code> is the reference country’s price, converted into this country’s currency. Functions: <code>min</code>, <code>max</code>, <code>round</code>, <code>floor</code>, <code>ceil</code>, <code>abs</code>.',
+  'strategy.formula.base': 'Reference country (base)',
+
+  'strategy.ladder.title': 'Price by purchasing power',
+  'strategy.ladder.intro':
+    'Build a ladder of five purchasing-power tiers, check the prices, then edit any tier or country.',
+  'strategy.ladder.base': 'Reference country',
+  'strategy.ladder.anchor': 'Anchor price',
+  'strategy.ladder.anchorHint': 'The price in the reference country. Every tier pays a share of it.',
+  'strategy.ladder.useCurrent': 'Use current price ({price})',
+  'strategy.ladder.curve': 'How steeply prices fall',
+  'strategy.ladder.previewCaption': 'Price for each tier',
+  'strategy.ladder.col.band': 'Tier',
+  'strategy.ladder.col.countries': 'Countries',
+  'strategy.ladder.col.share': 'Share',
+  'strategy.ladder.col.price': 'Price',
+  'strategy.ladder.note':
+    'Generating also selects the countries in the ladder. Everything stays editable, and nothing is applied until you review it.',
+  'strategy.ladder.replaces':
+    'Generating replaces the current tiers and selects the countries in the new ladder. Nothing is applied until you review it.',
+  'strategy.ladder.generate': 'Generate ladder',
+  'strategy.ladder.regenerate': 'Regenerate the ladder',
+  'strategy.ladder.regenerateSummary': 'Replaces the tiers below',
+  'strategy.ladder.regenerateAction': 'Regenerate ladder',
+  'strategy.ladder.selectionSet': {
+    one: 'Selection set to the {count} country in the ladder',
+    other: 'Selection set to the {count} countries in the ladder',
+  },
+
+  'strategy.tiers.title': { one: '{count} tier', other: '{count} tiers' },
+  'strategy.tiers.anchor': 'Anchor price in {country}',
+  'strategy.tiers.anchorHint': 'Every tier is a share of this price.',
+  'strategy.tiers.share': 'Share of the anchor price for {tier}',
+  'strategy.tiers.shareInvalid': 'Enter a share between 0 and {max}.',
+  'strategy.tiers.remove': 'Remove tier {tier}',
+  'strategy.tiers.members': 'Countries in {tier}',
+  'strategy.tiers.removeCountry': 'Remove {country} from {tier}',
+  'strategy.tiers.addRegion': 'Add a region…',
+  'strategy.tiers.addRegionLabel': 'Add a region to {tier}',
+  'strategy.tiers.groups.mine': 'My groups',
+  'strategy.tiers.groups.continents': 'Continents',
+  'strategy.tiers.groups.subregions': 'Sub-regions',
+  'strategy.tiers.groupOption': '{name} ({count})',
+  'strategy.tiers.addSelected': 'Add selected ({count})',
+  'strategy.tiers.newLabel': 'New tier name',
+  'strategy.tiers.newPlaceholder': 'e.g. Europe',
+  'strategy.tiers.exists': 'A tier already has this name.',
+  'strategy.tiers.add': 'Add tier',
+  'strategy.tiers.untiered': {
+    one: '{count} priced country is not in any tier and keeps its price.',
+    other: '{count} priced countries are not in any tier and keep their prices.',
+  },
+  'strategy.tiers.notSelected': {
+    one: '{count} country in the ladder is not selected, so its price will not change.',
+    other: '{count} countries in the ladder are not selected, so their prices will not change.',
+  },
+  'strategy.tiers.selectThem': 'Select them',
+
+  'strategy.advanced.title': 'Advanced options',
+  'strategy.advanced.summaryLimits': '{rounding} · limits {limits}',
+
+  'strategy.rounding.label': 'Rounding',
+  'strategy.rounding.charm': 'Charm prices',
+  'strategy.rounding.about.charm': 'Snaps to .99, .95, .90 or .49, whichever is closest. Never .00 or .50.',
+  'strategy.rounding.endings': 'My endings',
+  'strategy.rounding.about.endings': 'Only the endings you list below.',
+  'strategy.rounding.endingsHint': 'Fractions between 0 and 1, such as 0.99, 0.49.',
+  'strategy.rounding.integer': 'Whole units',
+  'strategy.rounding.about.integer': 'Rounds to whole units of each currency.',
+  'strategy.rounding.none': 'Exact',
+  'strategy.rounding.about.none': 'Keeps the calculated price, to the currency’s smallest unit.',
+  'strategy.rounding.endingsLabel': 'Endings',
+  'strategy.rounding.endingsInvalid': 'Use numbers between 0 and 1, such as 0.99.',
+  'strategy.rounding.endingsApplied': 'Endings in use',
+  'strategy.rounding.step': 'Step for currencies without decimals',
+  'strategy.rounding.stepHint': 'JPY, KRW and other currencies without cents snap to this step, scaled to the price.',
+  'strategy.rounding.stepInvalid': 'Enter a whole number of at least 1.',
+  'strategy.rounding.note':
+    'Rounding never moves a price by more than one unit, or one step in currencies without decimals.',
+
+  'strategy.limits.label': 'Limits',
+  'strategy.limits.maxIncrease': 'Maximum increase',
+  'strategy.limits.maxDecrease': 'Maximum decrease',
+  'strategy.limits.none': 'None',
+  'strategy.limits.hint': 'In each country, relative to its current price. Leave empty for no limit.',
+  'strategy.limits.invalid': 'Enter a percentage of 0 or more.',
+  'strategy.limits.invalidDecrease': 'Enter a percentage between 0 and 99.',
+
+  'strategy.legacy.title': 'This preset uses old price limits',
+  'strategy.legacy.body':
+    'Its floor and ceiling compare one number across every currency, so they mean very different amounts in yen and in euros. Remove them and use the percentage limits instead.',
+  'strategy.overrides.body': {
+    one: 'This preset sets an exact price for {count} country, which wins over the change above.',
+    other: 'This preset sets exact prices for {count} countries, which win over the change above.',
+  },
+
+  'strategy.preview.title': 'Preview',
+  'strategy.preview.reference': 'Reference',
+  'strategy.preview.becomes': 'becomes',
+  'strategy.preview.blocked': 'Blocked',
+  'strategy.preview.unchanged': 'Unchanged',
+  'strategy.preview.notSelected': 'Not selected',
+  'strategy.preview.count': {
+    one: '{count} price changes in all. You choose the countries next.',
+    other: '{count} prices change in all. You choose the countries next.',
+  },
+  'strategy.preview.nothing': 'With these settings, no price changes.',
+} as const;

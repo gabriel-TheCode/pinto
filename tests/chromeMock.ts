@@ -13,7 +13,20 @@ export interface ChromeMock {
   reset(): void;
 }
 
-function area(store: Record<string, unknown>) {
+type ChangeListener = (
+  changes: Record<string, { oldValue?: unknown; newValue?: unknown }>,
+  area: string,
+) => void;
+
+/** `storage.onChanged`, fired synchronously after every write like Chrome does (async there). */
+const changeListeners = new Set<ChangeListener>();
+
+function emit(name: string, changes: Record<string, { oldValue?: unknown; newValue?: unknown }>) {
+  if (!Object.keys(changes).length) return;
+  for (const listener of changeListeners) listener(changes, name);
+}
+
+function area(store: Record<string, unknown>, name: string) {
   return {
     async get(key?: string | string[] | null) {
       if (key == null) return { ...store };
@@ -23,10 +36,18 @@ function area(store: Record<string, unknown>) {
       ) as Record<string, unknown>;
     },
     async set(items: Record<string, unknown>) {
+      const changes: Record<string, { oldValue?: unknown; newValue?: unknown }> = {};
+      for (const [k, v] of Object.entries(items)) changes[k] = { oldValue: store[k], newValue: v };
       Object.assign(store, items);
+      emit(name, changes);
     },
     async remove(key: string | string[]) {
-      for (const k of Array.isArray(key) ? key : [key]) delete store[k];
+      const changes: Record<string, { oldValue?: unknown }> = {};
+      for (const k of Array.isArray(key) ? key : [key]) {
+        if (k in store) changes[k] = { oldValue: store[k] };
+        delete store[k];
+      }
+      emit(name, changes);
     },
     async clear() {
       for (const k of Object.keys(store)) delete store[k];
@@ -40,7 +61,14 @@ export function installChromeMock(): ChromeMock {
   const messages: unknown[] = [];
 
   const chromeStub = {
-    storage: { local: area(local), session: area(session) },
+    storage: {
+      local: area(local, 'local'),
+      session: area(session, 'session'),
+      onChanged: {
+        addListener: (listener: ChangeListener) => changeListeners.add(listener),
+        removeListener: (listener: ChangeListener) => changeListeners.delete(listener),
+      },
+    },
     runtime: {
       id: 'pinto-test',
       lastError: undefined as { message: string } | undefined,
@@ -55,6 +83,7 @@ export function installChromeMock(): ChromeMock {
     tabs: {
       get: vi.fn(),
       query: vi.fn(async () => []),
+      create: vi.fn(async () => ({})),
       sendMessage: vi.fn(async () => undefined),
       onUpdated: { addListener: vi.fn() },
     },

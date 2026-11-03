@@ -129,6 +129,12 @@ export interface LadderOptions {
    * simply left unassigned so they are never touched.
    */
   restrictTo?: RegionCode[] | null;
+  /**
+   * Names the generated tiers. Tier names are user data — they are saved in
+   * presets and can be renamed — so the interface passes names in the user's
+   * language; the default is the band's English label.
+   */
+  nameOf?: (band: EconomicBand) => string;
 }
 
 /**
@@ -139,6 +145,7 @@ export interface LadderOptions {
  */
 export function generateLadder(options: LadderOptions): TierStrategy {
   const { curve, baseRegion, anchorMicros, convert = true, restrictTo } = options;
+  const nameOf = options.nameOf ?? ((band: EconomicBand) => band.label);
   const shares = CURVES[curve].shares;
   const allowed = restrictTo ? new Set(restrictTo) : null;
 
@@ -149,8 +156,9 @@ export function generateLadder(options: LadderOptions): TierStrategy {
     const members = allowed ? band.members.filter((code) => allowed.has(code)) : band.members;
     // An empty band would show as a dead row in the editor, so it is omitted.
     if (!members.length) return;
-    tiers[band.label] = shares[index] ?? 1;
-    for (const code of members) assignment[code] = band.label;
+    const name = nameOf(band);
+    tiers[name] = shares[index] ?? 1;
+    for (const code of members) assignment[code] = name;
   });
 
   const strategy: TierStrategy = {

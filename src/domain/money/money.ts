@@ -58,34 +58,3 @@ export function apiMoneyToMicros(money: ApiMoney | undefined | null): number {
   const nanos = Number(money.nanos ?? 0);
   return Math.round(units * MICROS_PER_UNIT + nanos / 1000);
 }
-
-/**
- * Formatting deliberately uses the currency's own decimal count rather than
- * the browser locale's idea of it, so a JPY price never renders as ¥4.99.
- */
-export function formatMicros(
-  micros: number | null | undefined,
-  currency: CurrencyCode,
-  opts: { withCode?: boolean } = {},
-): string {
-  if (micros == null || !Number.isFinite(micros)) return '—';
-  const { decimals } = getCurrency(currency);
-  const value = microsToUnits(micros);
-  let body: string;
-  try {
-    body = new Intl.NumberFormat(undefined, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
-  } catch {
-    body = value.toFixed(decimals);
-  }
-  return opts.withCode === false ? body : `${currency} ${body}`;
-}
-
-export function formatPercent(delta: number | null): string {
-  if (delta == null || !Number.isFinite(delta)) return '—';
-  const pct = delta * 100;
-  const rounded = Math.abs(pct) >= 10 ? Math.round(pct) : Math.round(pct * 10) / 10;
-  return `${rounded > 0 ? '+' : ''}${rounded}%`;
-}

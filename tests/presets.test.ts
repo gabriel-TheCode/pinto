@@ -72,10 +72,24 @@ describe('preset list import', () => {
   it('reports which field is wrong instead of throwing', () => {
     const result = safeParsePresetList([{ ...valid, regions: ['nope'] }]);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/regions/);
+    // `path` is what the interface shows; `error` is zod's English for the log.
+    if (!result.ok) {
+      expect(result.path).toBe('0.regions.0');
+      expect(result.error).toMatch(/regions/);
+    }
+  });
+
+  it('accepts maximum increase and decrease limits, and refuses a decrease beyond 100 %', () => {
+    const limited = { ...valid, config: { ...valid.config, maxIncrease: 0.3, maxDecrease: 0.2 } };
+    expect(parsePreset(limited).config.maxIncrease).toBe(0.3);
+    expect(() =>
+      parsePreset({ ...valid, config: { ...valid.config, maxDecrease: 1.5 } }),
+    ).toThrow();
   });
 
   it('rejects a payload that is not a list at all', () => {
-    expect(safeParsePresetList({ hello: 'world' }).ok).toBe(false);
+    const result = safeParsePresetList({ hello: 'world' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.path).toBe('—');
   });
 });

@@ -1,4 +1,11 @@
-import type { CurrencyCode, ProductKind, ProductPricing, RegionCode, RegionalPrice } from '@/types';
+import type {
+  CurrencyCode,
+  ProductDetails,
+  ProductKind,
+  ProductPricing,
+  RegionCode,
+  RegionalPrice,
+} from '@/types';
 import { ERRORS, PintoError } from '@/lib/errors';
 import { apiMoneyToMicros, microsToApiMoney, MICROS_PER_UNIT, type ApiMoney } from '@/domain/money/money';
 import { minorUnitMicros } from '@/domain/money/money';
@@ -222,7 +229,8 @@ export class PlayApi {
           kind: 'subscription',
           productId: sub.productId,
           basePlanId: plan.basePlanId,
-          label: `${sub.productId} · ${planLabel(plan)}`,
+          label: `${sub.productId} · ${plan.basePlanId}`,
+          details: planDetails(plan),
           regionCount: plan.regionalConfigs?.length ?? 0,
         });
       }
@@ -235,7 +243,8 @@ export class PlayApi {
           kind: 'onetime',
           productId: product.productId,
           basePlanId: option.purchaseOptionId,
-          label: optionLabel(product.productId, option),
+          label: `${product.productId} · ${option.purchaseOptionId}`,
+          details: optionDetails(option),
           regionCount: option.regionalPricingAndAvailabilityConfigs?.length ?? 0,
         });
       }
@@ -249,7 +258,7 @@ export class PlayApi {
         kind: 'inapp',
         productId: iap.sku,
         basePlanId: INAPP_PLAN,
-        label: `${iap.sku} · managed product`,
+        label: iap.sku,
         regionCount: Object.keys(iap.prices ?? {}).length,
       });
     }
@@ -425,7 +434,8 @@ export class PlayApi {
       kind: 'onetime',
       productId,
       basePlanId: purchaseOptionId,
-      label: optionLabel(productId, option),
+      label: `${productId} · ${purchaseOptionId}`,
+      details: optionDetails(option),
       prices,
       raw: product,
     };
@@ -456,7 +466,8 @@ export class PlayApi {
       kind: 'subscription',
       productId,
       basePlanId,
-      label: `${productId} · ${planLabel(plan)}`,
+      label: `${productId} · ${basePlanId}`,
+      details: planDetails(plan),
       prices,
       raw: sub,
     };
@@ -481,7 +492,7 @@ export class PlayApi {
       kind: 'inapp',
       productId: sku,
       basePlanId: INAPP_PLAN,
-      label: `${sku} · one-time`,
+      label: sku,
       prices,
       raw: product,
     };
@@ -538,7 +549,7 @@ export class PlayApi {
         throw new PintoError({
           code: 'api/region-not-configured',
           message: `${regionCode} is not an available country for this purchase option.`,
-          hint: 'Add the country to the product in Play Console first, then price it with Pinto.',
+          params: { region: regionCode },
         });
       }
       // `availability` and every other field on the config are carried over
@@ -615,7 +626,7 @@ export class PlayApi {
         throw new PintoError({
           code: 'api/region-not-configured',
           message: `${regionCode} is not an available country for this base plan.`,
-          hint: 'Add the country to the base plan in Play Console first, then price it with Pinto.',
+          params: { region: regionCode },
         });
       }
       configs[index] = {
@@ -664,7 +675,7 @@ export class PlayApi {
         throw new PintoError({
           code: 'api/region-not-configured',
           message: `${regionCode} has no price on this product yet.`,
-          hint: 'Add the country to the product in Play Console first, then price it with Pinto.',
+          params: { region: regionCode },
         });
       }
       prices[regionCode] = { currency: existing.currency, priceMicros: String(Math.round(micros)) };
@@ -783,45 +794,30 @@ function pathOf(url: string): string {
   }
 }
 
-function optionLabel(productId: string, option: PurchaseOption): string {
-  const parts = [productId, option.purchaseOptionId];
-  if (option.rentOption) parts.push('rent');
-  else if (option.buyOption) parts.push('buy');
-  if (option.state && option.state !== 'ACTIVE') parts.push(option.state.toLowerCase());
-  return parts.join(' · ');
+function optionDetails(option: PurchaseOption): ProductDetails {
+  const details: ProductDetails = {};
+  if (option.rentOption) details.option = 'rent';
+  else if (option.buyOption) details.option = 'buy';
+  if (option.state && option.state !== 'ACTIVE') details.state = option.state.toLowerCase();
+  return details;
 }
 
-function reasonOf(error: unknown): { reason: string; code?: string } {
-  if (error instanceof PintoError) {
-    return {
-      reason: error.hint ? `${error.message} ${error.hint}` : error.message,
-      code: error.code,
-    };
-  }
-  return {
-    reason: error instanceof Error ? error.message : 'Google Play did not answer.',
-  };
-}
-
-function planLabel(plan: BasePlan): string {
+function planDetails(plan: BasePlan): ProductDetails {
+  const details: ProductDetails = {};
   const period =
     plan.autoRenewingBasePlanType?.billingPeriodDuration ??
     plan.prepaidBasePlanType?.billingPeriodDuration;
-  const parts = [plan.basePlanId];
-  if (period) parts.push(humanPeriod(period));
-  if (plan.state && plan.state !== 'ACTIVE') parts.push(plan.state.toLowerCase());
-  return parts.join(' · ');
+  if (period) details.period = period;
+  if (plan.state && plan.state !== 'ACTIVE') details.state = plan.state.toLowerCase();
+  return details;
 }
 
-function humanPeriod(iso: string): string {
-  const match = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/.exec(iso);
-  if (!match) return iso;
-  const [, y, m, w, d] = match;
-  if (y) return `${y} year${y === '1' ? '' : 's'}`;
-  if (m) return `${m} month${m === '1' ? '' : 's'}`;
-  if (w) return `${w} week${w === '1' ? '' : 's'}`;
-  if (d) return `${d} day${d === '1' ? '' : 's'}`;
-  return iso;
+/** Why a product type could not be listed, as a code the panel can word. */
+function reasonOf(error: unknown): { code: string; params?: Record<string, string | number> } {
+  if (error instanceof PintoError) {
+    return error.params ? { code: error.code, params: error.params } : { code: error.code };
+  }
+  return { code: 'api/no-answer' };
 }
 
 /** Turns a Google API error envelope into something a developer can act on. */
@@ -833,7 +829,6 @@ export function toApiError(status: number, body: string): PintoError {
     return new PintoError({
       code: 'api/not-found',
       message: 'Google Play could not find that resource.',
-      hint: 'Check the package name, and that the product still exists.',
       detail,
     });
   }
@@ -849,22 +844,16 @@ export function toApiError(status: number, body: string): PintoError {
       return new PintoError({
         code: 'api/regions-version',
         message: `${region} is priced in ${got}, but Pinto asked Google Play to treat it as ${expected}.`,
-        hint: `This is a regions-version mismatch — usually a country that recently switched currency (for example Bulgaria adopting the euro). Pinto discovers the current regions version from Google Play automatically; reload the prices and try again.`,
+        params: { region: region!, expected: expected!, got: got! },
         detail,
       });
     }
-    return new PintoError({
-      code: 'api/rejected',
-      message: 'Google Play rejected the change.',
-      hint: 'Pinto will try to narrow this down to the countries responsible.',
-      detail,
-    });
+    return new PintoError({ code: 'api/rejected', message: 'Google Play rejected the change.', detail });
   }
   if (status === 409) {
     return new PintoError({
       code: 'api/conflict',
       message: 'The product changed while Pinto was updating it.',
-      hint: 'Reload the prices and try again.',
       detail,
       retryable: true,
     });
@@ -873,7 +862,6 @@ export function toApiError(status: number, body: string): PintoError {
     return new PintoError({
       code: 'api/rate-limited',
       message: 'Google Play is rate-limiting the Play Developer API.',
-      hint: 'Wait a minute and retry.',
       detail,
       retryable: true,
     });
@@ -882,14 +870,14 @@ export function toApiError(status: number, body: string): PintoError {
     return new PintoError({
       code: 'api/server',
       message: 'Google Play had a server error.',
-      hint: 'This is usually temporary — retry in a moment.',
       detail,
       retryable: true,
     });
   }
   return new PintoError({
-    code: `api/http-${status}`,
+    code: 'api/http',
     message: `Google Play returned HTTP ${status}.`,
+    params: { status },
     detail,
     retryable: status >= 500,
   });

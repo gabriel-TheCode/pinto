@@ -10,22 +10,27 @@ A Chrome extension for Android developers who need to change Google Play prices 
 
 Pinto lives inside Play Console. Open a subscription, one-time product or pricing page and a launcher appears; the panel opens next to the prices you were already looking at.
 
-- **Select markets** by search, continent, sub-region, currency, or one at a time.
-- **Apply a strategy** — percentage, multiplier, fixed price, copy-from-market, user-defined tiers, or a formula.
-- **Price by economic zone in one click** — generate a purchasing-power ladder across five bands, pick how steep it is, and edit any share or country before applying.
-- **Build a price ladder by hand** by dropping whole continents, sub-regions or your own saved groups into tiers you define.
-- **Round** to charm endings, your own endings, whole units, or not at all.
-- **Review every row** before applying: current price, new price, change, and any warning attached to it.
-- **Apply**, then see what Google Play actually accepted — including which countries it rejected and why.
-- **Undo**, using the price snapshot taken immediately before the write.
-- **Learn it in the app** — a Guide tab walks through the workflow, the strategies, the safety rails and the common error messages, in English or French.
+Every price change is the same three steps, always visible at the top of the panel:
+
+1. **Change** — how prices should move: a percentage, a multiplier, one fixed price converted per country, another country's price, a purchasing-power ladder, or a formula. Nothing is pre-selected: Pinto opens on "no change". Your last change and your saved presets are one click away.
+2. **Countries** — where: every priced country starts selected; narrow it by search, continent, sub-region, currency or your own saved groups. The new price sits beside the current one as you go.
+3. **Review** — what will happen, row by row: changing, to check, blocked, unchanged. Then apply — or simulate first.
+
+Afterwards Pinto reads the prices back from Google Play and reports what actually landed, country by country. History keeps a snapshot of the prices before each write, and restoring them shows you what will change first.
+
+- **Price by economic zone** — generate a purchasing-power ladder across five bands, pick how steep it is, and edit any share or country before applying.
+- **Round** to charm endings, your own endings, whole units, or not at all; cap any move with a maximum increase or decrease.
+- **In English or French** — every screen, message, error and number format, switchable at any time from Settings (or before sign-in), applied at once to the panel, the popup and the launcher.
+- **Help in the app** — the three steps, the strategies, the safety rails and the common error messages, under the Help button.
 
 | | |
 | --- | --- |
-| ![The pricing table](docs/screenshots/pricing.png) | ![Purchasing-power tiers](docs/screenshots/strategy-tiers.png) |
-| **Pricing** — every market the product sells in, with the new price and the change beside the old one. Filter by search, continent, sub-region or currency. | **Tiers** — a purchasing-power ladder across five bands, generated on request and editable band by band and country by country. |
-| ![Review before applying](docs/screenshots/review.png) | ![The in-app guide](docs/screenshots/guide.png) |
-| **Review** — split into changing, warnings, blocked and unchanged. Blocked rows are never written, and every row says why. | **Guide** — the workflow, the strategies, the safety rails and the common error messages, in English or French. |
+| ![Step 1: the change](docs/screenshots/strategy.png) | ![Purchasing-power tiers](docs/screenshots/strategy-tiers.png) |
+| **Change** — how prices should move, with a live preview of the result. Pinto opens on "no change". | **Purchasing power** — a ladder across five bands, generated on request and editable band by band and country by country. |
+| ![Step 2: the countries](docs/screenshots/markets.png) | ![Step 3: review](docs/screenshots/review.png) |
+| **Countries** — every country the product sells in, the new price beside the old one. Filters change what is shown, never silently what is written. | **Review** — changing, to check, blocked and unchanged. Blocked rows are never written, and every row says why. |
+
+French screenshots of every screen are in [`docs/screenshots/fr/`](docs/screenshots/fr).
 
 <sub>Screenshots are the real panel rendered against sample data by `npm run screenshots`, not mockups.</sub>
 
@@ -175,14 +180,30 @@ src/
   services/        API client, auth, storage, logging, message contract
   background/      MV3 service worker: routing and the apply engine
   content/         page detection, launcher injection, panel window chrome
+  i18n/            translation engine, dictionaries, Intl formatting,
+                   language preference, domain-to-words presentation
+  ui/              design system: buttons, fields, dialogs, feedback, layout
+  app/             panel entry: App gates, theme, store (one slice per concern)
+  features/        workspace (shell, product bar, stepper), strategy, markets,
+                   review (review, progress, result), history, settings,
+                   help, onboarding
   panel/ popup/    entry points
-  app/             shell, store, theme, i18n dictionaries
-  components/      design system primitives
-  features/        auth, pricing, strategies, regions, presets, history,
-                   guide, settings
 ```
 
 **The rule that shapes everything:** pricing logic is pure and lives in `domain/`. `computeChangeSet` takes a product, a selection and a strategy and returns the exact rows that will be written. The review screen renders that value; the apply engine sends that value. There is no second code path where the numbers could diverge from what you approved.
+
+**The second rule:** below the interface, nothing speaks English. The domain, the API client and the worker produce codes and numbers — a row's issue is `{ code: 'no-rate', params: { currency: 'JPY' } }`, an error is `{ code: 'api/forbidden' }`, an operation record stores its strategy and counts, not a sentence. `src/i18n/describe.ts` is the one place those become words, in the user's language. That is also why history recorded in English last month reads in French today.
+
+### Internationalisation
+
+- **One engine, every surface.** `src/i18n/core.ts` is a typed dictionary lookup with `{name}` substitution, CLDR plurals through `Intl.PluralRules` (French puts 0 and 1 in the singular, English only 1) and inline markup (`Press <kbd>/</kbd>`). No library: `Intl` already ships the hard parts.
+- **Dictionaries by area.** `src/i18n/locales/<locale>/<namespace>.ts`, one namespace per area of the product, keys prefixed by it. English is the source of truth; every other locale is typed against it, so a missing key, a stray key or a misspelt `{param}` is a compile error, and a test checks placeholders, plural categories, French typography and that French was not copied from English.
+- **Formats follow the interface language,** not the browser's: money (`USD 4.99` / `4,99 USD`, decimals from the currency, never the locale), percentages, dates, relative times, and country names (`Intl.DisplayNames`, so search finds "Allemagne" as well as "Germany"). Typed amounts accept both `4,99` and `4.99`. Display never feeds back into a written price.
+- **The preference** (`auto`, `en` or `fr`) lives in `chrome.storage.local`; every surface — panel, popup, the launcher on Play Console — watches it and switches the moment it changes. `auto` follows the browser.
+- **Chrome's own `chrome.i18n`** is used only for the manifest (`public/_locales`): it follows the browser's language and cannot be switched at runtime, which is what a language picker must do.
+- **Guard rails:** a test parses every component and fails on literal text in JSX or in user-facing attributes; another renders every screen in French and fails if an English-only string shows up; the build fails if a `__MSG_` key is missing from any locale.
+
+Adding a language: copy `src/i18n/locales/fr` to the new code, translate, add it to `LOCALES` in `core.ts` and to both locale indexes, and add `public/_locales/<code>/messages.json`. The compiler lists every key left to do.
 
 ### Responsibilities
 
@@ -190,7 +211,7 @@ src/
 
 **Service worker** (`src/background/`) — owns authentication, the API client, the apply engine and all persistence. It survives the panel closing and the tab navigating. Every cross-context call goes through one discriminated union in `src/services/messages.ts`.
 
-**Panel** (`src/panel/`, `src/app/`, `src/features/`) — a view over the worker's state. It never touches `chrome.runtime` directly; the typed `send()` client does.
+**Panel** (`src/panel/`, `src/app/`, `src/features/`) — a view over the worker's state. It never touches `chrome.runtime` directly; the typed `send()` client does. State is one zustand store built from slices (`src/app/store/`: session, catalogue, composer, operations, library, navigation); the change set is derived from it, never stored.
 
 ### Pricing by economic zone
 
@@ -214,7 +235,7 @@ Pinto asks Google instead, through `convertRegionPrices`: the same conversion Pl
 
 Rates implied by the product's own prices remain the fallback when the conversion call fails, so a network hiccup degrades the result instead of blocking the write.
 
-**Partial failure, when the API is all-or-nothing.** Play has no per-country price endpoint: one call writes the whole product, and one bad country fails the batch with an error that may not name it. Pinto attempts the change atomically, and on rejection **binary-searches** the change set to find the exact countries responsible, applying everything that works. Then it re-reads the product to confirm what actually landed. "Updated 128 of 132 countries, here are the 4" is a measured result, not an assumption.
+**Partial failure, when the API is all-or-nothing.** Play has no per-country price endpoint: one call writes the whole product, and one bad country fails the batch with an error that may not name it. Pinto attempts the change atomically, and on rejection **binary-searches** the change set to find the exact countries responsible, applying everything that works. After **every** write — atomic or not — it re-reads the product to confirm what actually landed. "Updated 128 of 132 countries, here are the 4" is a measured result, not an assumption; when the read-back itself fails, the operation is recorded as *not confirmed* rather than as a success. Just before writing, Pinto also re-reads the product and refuses if a price or a currency changed since the review, so it never writes over an edit made in the meantime.
 
 ---
 
@@ -228,13 +249,16 @@ npm test
 npm run typecheck
 ```
 
-295 tests across three levels:
+554 tests across four levels:
 
-- **Unit** — micros/`Money` round-trips and currency granularity, rounding (including the invariants that it never moves a price by more than one unit and never lands on a round `.00`), the formula parser and its sandbox, conversion tables, the economic bands and ladder generator, region filtering, preset and translation-dictionary validation.
-- **Integration** — `computeChangeSet` across every strategy; the full panel state machine from boot through selection, strategy, review and apply, asserting that what the review screen showed is exactly what gets sent; the apply engine's bisect isolation, dry run, undo and unrecoverable-error paths against a fake Play that behaves like the real all-or-nothing endpoint.
-- **Extension** — content-script injection and shadow-root isolation, inline-anchor detection and its fallback, package-name sniffing, URL-based page detection, message-passing failure modes, React rendering of the sign-out / unsupported-page / unknown-app / pricing / review screens, and the full tiering flow driven through the UI.
+- **Unit** — micros/`Money` round-trips and currency granularity, rounding, the formula parser and its sandbox, conversion tables, the economic bands and ladder generator, region filtering, preset validation; the translation engine (plurals, interpolation, fallbacks), `Intl` formatting and decimal parsing in both languages, and the language preference.
+- **Integration** — `computeChangeSet` across every strategy and limit; the store from boot to apply, result and restore, asserting that what the review showed is exactly what gets sent; the apply engine's read-back verification, bisect isolation, interruption, stale-price refusal, dry run and partial restore against a fake Play that behaves like the real all-or-nothing endpoint.
+- **Interface** — every gate, step and side screen driven through the real React app: one tab stop per country, shortcuts that never fire while typing, confirmations, restore with drift detection, language switching across surfaces.
+- **Guard rails** — no literal text in any component; every screen and state rendered in French and checked for English; dictionary parity, placeholders, plural categories and French typography; which layer may import which; content-script injection and live relabelling.
 
-Chrome APIs are faked in `tests/chromeMock.ts` with real backing stores, so a test can assert that a token never lands in `storage.local`.
+Chrome APIs are faked in `tests/chromeMock.ts` with real backing stores (including `storage.onChanged`), so a test can assert that a token never lands in `storage.local`.
+
+Every screen is also photographed in both languages by `npm run screenshots` (`docs/screenshots/` and `docs/screenshots/fr/`).
 
 ---
 
@@ -250,7 +274,8 @@ Chrome APIs are faked in `tests/chromeMock.ts` with real backing stores, so a te
 
 ## Known limitations
 
-- **Countries must already exist on the product.** Play's API updates prices for regions the product already offers; it does not add a country. Add the market in Play Console first, then price it here. Pinto refuses such a write with a clear message rather than sending something that will fail.
+- **Countries must already exist on the product.** Play's API updates prices for regions the product already offers; it does not add a country. Add the market in Play Console first, then price it here. Pinto marks such a country as blocked before review rather than sending something that will fail.
+- **Prices are checked again just before writing.** If a price or a currency changed since you loaded it (someone edited the product meanwhile), Pinto writes nothing and asks you to reload and review again.
 - **Existing subscribers keep their price.** New prices apply to new subscribers. Changing what existing subscribers pay is a separate Play flow with its own notice and consent rules, and Pinto deliberately does not automate it. The review screen says so.
 - **Conversion needs a currency Google will quote.** A market Google's conversion does not return, and that the product does not already price, has no rate; those rows are blocked with an explanation instead of guessed.
 - **Offers and prepaid plans are not edited.** Pinto writes base-plan and one-time-product prices. Offer prices are passed through untouched.
@@ -267,9 +292,11 @@ Chrome APIs are faked in `tests/chromeMock.ts` with real backing stores, so a te
 | --- | --- |
 | `⇧P` | Open or close Pinto from Play Console |
 | `/` | Focus the country search |
-| `⌘/Ctrl + A` | Select or clear all visible countries |
-| `⌘/Ctrl + ↵` | Review changes |
-| `Esc` | Close the panel |
+| `⌘/Ctrl + A` | Select or clear all shown countries |
+| `⌘/Ctrl + ↵` | Next step (Choose countries, Review, Apply) |
+| `Esc` | Close a dialog, otherwise the panel |
+
+Shortcuts never fire while you are typing in a field.
 
 The panel is a window, not a fixed sidebar: drag its title bar to move it, dock
 it to either edge with the arrow buttons, drag an edge or corner to resize, and
@@ -280,7 +307,7 @@ reach whatever is underneath without closing Pinto. The layout is remembered.
 
 ## Stack
 
-TypeScript · React 19 · Vite 6 · Tailwind 4 · Zustand · Zod · Vitest. No UI framework beyond the design system in `src/components/`, no HTTP client, no date library, no state-machine library.
+TypeScript · React 19 · Vite 6 · Tailwind 4 · Zustand · Zod · Vitest. No UI framework beyond the design system in `src/ui/`, no i18n library, no HTTP client, no date library, no state-machine library.
 
 Two Vite configs: the panel, popup and service worker build as ES modules; the content script builds as a single IIFE, because MV3 content scripts cannot be modules.
 

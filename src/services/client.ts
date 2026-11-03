@@ -22,7 +22,6 @@ export async function send<T extends Request['type']>(
     throw new RequestFailed({
       code: 'runtime/disconnected',
       message: 'Pinto lost its connection to the extension.',
-      hint: 'Reload the Play Console tab and try again.',
       detail: error instanceof Error ? error.message : String(error),
       retryable: true,
     });
@@ -32,7 +31,6 @@ export async function send<T extends Request['type']>(
     throw new RequestFailed({
       code: 'runtime/no-response',
       message: 'Pinto did not get a response from the extension.',
-      hint: 'Reload the Play Console tab and try again.',
       retryable: true,
     });
   }

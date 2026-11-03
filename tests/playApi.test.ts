@@ -49,14 +49,16 @@ describe('reading subscription pricing', () => {
       { regionCode: 'US', currency: 'USD', micros: unitsToMicros(4.99), availableToNewSubscribers: true },
       { regionCode: 'JP', currency: 'JPY', micros: unitsToMicros(800), availableToNewSubscribers: true },
     ]);
-    expect(pricing.label).toContain('1 month');
+    // Ids only; the period travels as data and is worded in the panel.
+    expect(pricing.label).toBe('premium · monthly');
+    expect(pricing.details).toEqual({ period: 'P1M' });
   });
 
   it('fails clearly when the base plan does not exist', async () => {
     const client = api(vi.fn(async () => ok(SUBSCRIPTION)) as unknown as typeof fetch);
     await expect(
       client.getPricing('com.example.app', 'subscription', 'premium', 'weekly'),
-    ).rejects.toThrow(/could not find/i);
+    ).rejects.toMatchObject({ code: 'api/not-found', detail: 'base plan "weekly" on premium' });
   });
 });
 
@@ -177,7 +179,7 @@ describe('writing subscription pricing', () => {
       client.updatePrices('com.example.app', 'subscription', 'premium', 'monthly', {
         BR: unitsToMicros(24.9),
       }),
-    ).rejects.toThrow(/not an available country/i);
+    ).rejects.toMatchObject({ code: 'api/region-not-configured', params: { region: 'BR' } });
   });
 });
 
@@ -476,8 +478,8 @@ describe('one-time products (purchase-option model)', () => {
 
     const catalogue = await client.listProducts('com.example.app');
     expect(catalogue.unavailable.map((entry) => entry.kind)).toContain('onetime');
-    expect(catalogue.unavailable.find((entry) => entry.kind === 'onetime')!.reason).toMatch(
-      /refused/i,
+    expect(catalogue.unavailable.find((entry) => entry.kind === 'onetime')!.code).toBe(
+      'api/forbidden',
     );
   });
 });
@@ -554,6 +556,8 @@ describe('error mapping', () => {
     expect(toApiError(400, '{}').code).toBe('api/rejected');
     expect(toApiError(429, '{}').retryable).toBe(true);
     expect(toApiError(503, '{}').retryable).toBe(true);
+    // An unmapped status keeps one code and carries the number as a param.
+    expect(toApiError(418, '{}')).toMatchObject({ code: 'api/http', params: { status: 418 } });
   });
 
   it('lifts the Google error message into the technical detail, not the headline', () => {
@@ -573,8 +577,8 @@ describe('error mapping', () => {
       }),
     );
     expect(error.code).toBe('api/regions-version');
+    expect(error.params).toEqual({ region: 'BG', expected: 'BGN', got: 'EUR' });
     expect(error.message).toMatch(/BG is priced in EUR/);
-    expect(error.hint).toMatch(/Bulgaria/);
   });
 
   it('only reports regions that were actually part of the request', () => {

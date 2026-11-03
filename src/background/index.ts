@@ -1,5 +1,5 @@
-import type { PageContext } from '@/types';
-import { toPayload, ERRORS } from '@/lib/errors';
+import type { OperationRecord, PageContext } from '@/types';
+import { toPayload, ERRORS, PintoError } from '@/lib/errors';
 import { parsePreset } from '@/domain/presets/schema';
 import { parseCustomGroup } from '@/domain/regions/schema';
 import { auth } from '@/services/auth';
@@ -7,7 +7,14 @@ import { log } from '@/services/logger';
 import { PlayApi } from '@/services/playApi';
 import { storage, type Settings } from '@/services/storage';
 import { parsePlayConsoleUrl } from '@/services/playConsoleUrl';
-import type { ApplyResult, Event, Request, Response } from '@/services/messages';
+import type {
+  ApplyProgress,
+  ApplyRequest,
+  ApplyResult,
+  Event,
+  Request,
+  Response,
+} from '@/services/messages';
 import { applyPricing, revertRequest } from './applyEngine';
 
 /**
@@ -16,12 +23,55 @@ import { applyPricing, revertRequest } from './applyEngine';
  * all persistence. The panel is a pure view over this.
  */
 
+/**
+ * One client per regions version. PlayApi caches what it learns about Google's
+ * endpoints (which casing works, the live regions version); building a new one
+ * for every request threw that away and re-probed on each call.
+ */
+let client: { version: string; api: PlayApi } | null = null;
+
 async function api(): Promise<PlayApi> {
   const settings = await storage.getSettings();
-  return new PlayApi({
-    getAccessToken: () => auth.getAccessToken(),
-    regionsVersion: settings.regionsVersion,
-  });
+  if (client?.version !== settings.regionsVersion) {
+    client = {
+      version: settings.regionsVersion,
+      api: new PlayApi({
+        getAccessToken: () => auth.getAccessToken(),
+        regionsVersion: settings.regionsVersion,
+      }),
+    };
+  }
+  return client.api;
+}
+
+/**
+ * The apply in flight, if any. Kept so a panel opened (or reopened) mid-write
+ * shows the progress instead of an editable screen over a moving product.
+ */
+let currentApply: ApplyProgress | null = null;
+
+function reportProgress(progress: ApplyProgress): void {
+  // The lock is released by runApply once the record is saved, not here.
+  if (progress.phase !== 'done') currentApply = progress;
+  broadcast({ type: 'apply/progress', progress });
+}
+
+/** One write at a time: two applies racing on one product would interleave. */
+async function runApply(request: ApplyRequest): Promise<OperationRecord> {
+  if (currentApply) {
+    throw new PintoError({ code: 'apply/busy', message: 'Another update is still running.', retryable: true });
+  }
+  currentApply = { phase: 'preparing', completed: 0, total: Object.keys(request.updates).length };
+  try {
+    return await applyPricing(await api(), request, reportProgress);
+  } catch (error) {
+    // Panels that adopted this write at boot learn it is over this way.
+    const total = Object.keys(request.updates).length;
+    broadcast({ type: 'apply/progress', progress: { phase: 'done', completed: total, total } });
+    throw error;
+  } finally {
+    currentApply = null;
+  }
 }
 
 function broadcast(event: Event): void {
@@ -93,6 +143,10 @@ async function handle(request: Request, sender: chrome.runtime.MessageSender): P
     }
 
     case 'auth/setClientId': {
+      // A token belongs to the client that minted it: a new client id means
+      // signing in again, never carrying on with the old grant.
+      const previous = await storage.getClientId();
+      if (previous && previous !== request.clientId.trim()) await auth.signOut();
       await storage.setClientId(request.clientId);
       const state = await auth.getState();
       broadcast({ type: 'auth/changed', state });
@@ -130,11 +184,12 @@ async function handle(request: Request, sender: chrome.runtime.MessageSender): P
       );
 
     case 'pricing/apply': {
-      const record = await applyPricing(await api(), request.request, (progress) =>
-        broadcast({ type: 'apply/progress', progress }),
-      );
+      const record = await runApply(request.request);
       return { operation: record } satisfies ApplyResult;
     }
+
+    case 'apply/status':
+      return currentApply;
 
     case 'history/list':
       return storage.getHistory();
@@ -142,14 +197,14 @@ async function handle(request: Request, sender: chrome.runtime.MessageSender): P
     case 'history/revert': {
       const history = await storage.getHistory();
       const original = history.find((h) => h.id === request.operationId);
-      if (!original) throw ERRORS.apiNotFound('that operation');
-      if (!original.snapshot.length) {
-        throw ERRORS.apiNotFound('a snapshot for that operation');
+      if (!original) throw ERRORS.operationNotFound();
+      if (!original.snapshot.length) throw ERRORS.noSnapshot();
+      const record = await runApply(revertRequest(original, request.regions));
+      // Only a complete, confirmed restore retires the original; anything
+      // less leaves its Restore available for the countries still to fix.
+      if (record.status === 'succeeded' && !request.regions) {
+        await storage.updateHistory(original.id, { revertedBy: record.id });
       }
-      const record = await applyPricing(await api(), revertRequest(original), (progress) =>
-        broadcast({ type: 'apply/progress', progress }),
-      );
-      await storage.updateHistory(original.id, { revertedBy: record.id });
       return { operation: record } satisfies ApplyResult;
     }
 
@@ -238,6 +293,7 @@ const REQUEST_PREFIXES = [
   'groups/',
   'panel/',
   'log/',
+  'apply/status',
 ];
 
 function isRequest(type: string): boolean {

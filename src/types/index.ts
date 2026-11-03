@@ -81,11 +81,27 @@ export interface ProductPricing {
    * use the synthetic id `DEFAULT`.
    */
   basePlanId: string;
-  /** Human label, e.g. "Monthly · P1M". */
+  /** Technical label built from ids only, e.g. "premium · monthly". */
   label: string;
+  /** Facts the interface turns into words in the user's language. */
+  details?: ProductDetails;
   prices: RegionalPrice[];
   /** Raw resource as returned by the API, kept so writes can be surgical. */
   raw: unknown;
+}
+
+/**
+ * What Play says about a product beyond its ids. Kept as data — an ISO 8601
+ * period, an option type, an API state — so that "1 month" or "1 mois" is
+ * decided where the language is known, not in the service worker.
+ */
+export interface ProductDetails {
+  /** Billing period of a subscription base plan, e.g. `P1M`. */
+  period?: string;
+  /** Purchase option type of a one-time product. */
+  option?: 'buy' | 'rent';
+  /** Lower-cased API state when it is not active, e.g. `draft`, `inactive`. */
+  state?: string;
 }
 
 export interface RegionalPrice {
@@ -184,6 +200,13 @@ export interface StrategyConfig {
   floorMicros: number | null;
   ceilingMicros: number | null;
   /**
+   * Largest rise and fall allowed, as fractions of the current price (0.3 =
+   * 30%). Unlike the floor and ceiling — one number compared in every
+   * currency — these mean the same thing in every market.
+   */
+  maxIncrease?: number | null;
+  maxDecrease?: number | null;
+  /**
    * Per-region absolute prices, in each region's own currency (micros), that
    * win over whatever the strategy computes. Used to fold market-specific
    * corrections — a VAT-inclusive euro price, say — into a single preset
@@ -214,21 +237,54 @@ export interface PriceChange {
   rateUsed?: number;
 }
 
+/**
+ * Something worth telling the user about one row. Machine-readable only: the
+ * interface turns `code` and `params` into a sentence in the user's language,
+ * so the pure pricing core never produces English prose.
+ */
 export interface ChangeIssue {
   level: 'info' | 'warning' | 'error';
-  code:
-    | 'no-current-price'
-    | 'no-rate'
-    | 'below-floor'
-    | 'above-ceiling'
-    | 'not-positive'
-    | 'rounded'
-    | 'large-increase'
-    | 'large-decrease'
-    | 'granularity'
-    | 'formula-error';
-  message: string;
+  code: ChangeIssueCode;
+  params?: Record<string, string | number>;
 }
+
+export type ChangeIssueCode =
+  /** Percentage/multiplier/formula need a current price to start from. */
+  | 'no-current-price'
+  /** Copy source has no price. */
+  | 'no-source-price'
+  /** The base market has no price (and, for tiers, no anchor was given). */
+  | 'no-base-price'
+  /** No conversion table at all. */
+  | 'no-rates'
+  /** No rate for this market's currency. `{ currency }` */
+  | 'no-rate'
+  /** A market is assigned to a tier with no share. `{ tier }` */
+  | 'tier-undefined'
+  /** `{ reason, ... }` — see FormulaErrorCode. */
+  | 'formula-error'
+  | 'not-positive'
+  /** `{ currency }` — zero-decimal currency got a fraction. */
+  | 'granularity-whole'
+  /** `{ currency, decimals }` */
+  | 'granularity-minor'
+  /** `{ currency }` — no decimal rule known; two were assumed. */
+  | 'unknown-currency'
+  /** `{ threshold }` as a fraction, e.g. 0.5. */
+  | 'large-increase'
+  | 'large-decrease'
+  | 'rounded'
+  | 'below-floor'
+  | 'above-ceiling'
+  /** A per-market override set the exact price. */
+  | 'override'
+  /** Tiers: the country is in no tier, so its price is left as it is. */
+  | 'untiered'
+  /** The product is not sold in this country; Play cannot price it. */
+  | 'not-sold'
+  /** Held to the maximum increase/decrease. `{ limit }` as a fraction. */
+  | 'clamped-increase'
+  | 'clamped-decrease';
 
 export interface ChangeSet {
   product: ProductPricing;
@@ -256,7 +312,23 @@ export interface Preset {
   createdAt: number;
 }
 
-export type OperationStatus = 'succeeded' | 'failed' | 'partial' | 'dry-run';
+/**
+ * `succeeded` and `partial` are only ever recorded after reading the prices
+ * back from Google Play. When that read fails the write is `unverified`: Play
+ * accepted it, but Pinto has no proof of what landed and says so.
+ */
+export type OperationStatus = 'succeeded' | 'failed' | 'partial' | 'unverified' | 'dry-run';
+
+export interface OperationFailure {
+  regionCode: RegionCode;
+  /** Error code, rendered in the user's language. */
+  code?: string;
+  params?: Record<string, string | number>;
+  /** Google's own words, kept verbatim as technical detail. */
+  detail?: string;
+  /** Records written before 1.1 stored an English sentence here. */
+  reason?: string;
+}
 
 export interface OperationRecord {
   id: string;
@@ -265,13 +337,24 @@ export interface OperationRecord {
   kind: ProductKind;
   productId: string;
   basePlanId: string;
-  strategyLabel: string;
+  /** The strategy applied, so it can be described in any language later. */
+  config?: StrategyConfig;
+  /** Set when this operation put back the prices captured by another one. */
+  revertOf?: string;
+  /** Records written before 1.1 stored an English description instead. */
+  strategyLabel?: string;
+  /** Countries in the write request. */
+  requested?: number;
+  /** Countries confirmed by reading back (or that would change, for a dry run). */
   regionsAffected: number;
   status: OperationStatus;
-  message: string;
+  /** Records written before 1.1 stored an English summary. Never displayed now. */
+  message?: string;
   /** Prices as they were immediately before the write — powers Undo. */
   snapshot: RegionalPrice[];
-  /** Regions the API rejected, with the reason we could isolate. */
-  failures: { regionCode: RegionCode; reason: string }[];
+  /** The prices this operation asked for, so a restore can spot later edits. */
+  written?: Record<RegionCode, number>;
+  /** Regions the API rejected or that did not read back as written. */
+  failures: OperationFailure[];
   revertedBy?: string;
 }

@@ -8,9 +8,29 @@
  * variables and a fixed set of functions. Nothing else can be expressed.
  */
 
+export type FormulaErrorCode =
+  | 'empty'
+  | 'not-a-number'
+  | 'unexpected-character'
+  | 'expected'
+  | 'trailing-input'
+  | 'unknown-function'
+  | 'arity'
+  | 'unknown-name'
+  | 'unexpected-end'
+  | 'division-by-zero'
+  | 'unsupported-operator'
+  | 'not-finite';
+
+/**
+ * `code` and `params` are what the interface translates; `message` is the
+ * English technical form kept for logs and tests.
+ */
 export class FormulaError extends Error {
   constructor(
+    readonly code: FormulaErrorCode,
     message: string,
+    readonly params: Record<string, string | number> = {},
     readonly position?: number,
   ) {
     super(message);
@@ -70,7 +90,7 @@ function tokenize(input: string): Token[] {
       while (i < input.length && /[0-9.]/.test(input[i]!)) i++;
       const text = input.slice(start, i);
       const value = Number(text);
-      if (!Number.isFinite(value)) throw new FormulaError(`Not a number: "${text}"`, start);
+      if (!Number.isFinite(value)) throw new FormulaError('not-a-number', `Not a number: "${text}"`, { text }, start);
       tokens.push({ type: 'number', value, pos: start });
       continue;
     }
@@ -85,7 +105,7 @@ function tokenize(input: string): Token[] {
       i++;
       continue;
     }
-    throw new FormulaError(`Unexpected character "${ch}"`, i);
+    throw new FormulaError('unexpected-character', `Unexpected character "${ch}"`, { char: ch }, i);
   }
   tokens.push({ type: 'eof', pos: input.length });
   return tokens;
@@ -111,14 +131,14 @@ class Parser {
   private expect(op: string): void {
     const token = this.next();
     if (token.type !== 'op' || token.value !== op) {
-      throw new FormulaError(`Expected "${op}"`, token.pos);
+      throw new FormulaError('expected', `Expected "${op}"`, { token: op }, token.pos);
     }
   }
 
   parse(): number {
     const value = this.expression(0);
     const token = this.peek();
-    if (token.type !== 'eof') throw new FormulaError('Unexpected trailing input', token.pos);
+    if (token.type !== 'eof') throw new FormulaError('trailing-input', 'Unexpected trailing input', {}, token.pos);
     return value;
   }
 
@@ -176,19 +196,26 @@ class Parser {
         this.expect(')');
         const fn = FUNCTIONS[name];
         const arity = FUNCTION_ARITY[name];
-        if (!fn || !arity) throw new FormulaError(`Unknown function "${name}"`, token.pos);
+        if (!fn || !arity) throw new FormulaError('unknown-function', `Unknown function "${name}"`, { name }, token.pos);
         if (args.length < arity[0] || args.length > arity[1]) {
-          throw new FormulaError(`"${name}" takes ${arity[0]}–${arity[1]} arguments`, token.pos);
+          throw new FormulaError(
+            'arity',
+            `"${name}" takes ${arity[0]}–${arity[1]} arguments`,
+            { name, min: arity[0], max: arity[1] },
+            token.pos,
+          );
         }
         return fn(args);
       }
       if (name in this.scope) return this.scope[name as FormulaVariable];
       throw new FormulaError(
+        'unknown-name',
         `Unknown name "${token.value}". Available: ${FORMULA_VARIABLES.join(', ')}`,
+        { name: token.value },
         token.pos,
       );
     }
-    throw new FormulaError('Unexpected end of expression', token.pos);
+    throw new FormulaError('unexpected-end', 'Unexpected end of expression', {}, token.pos);
   }
 }
 
@@ -201,30 +228,36 @@ function apply(op: string, left: number, right: number, pos: number): number {
     case '*':
       return left * right;
     case '/':
-      if (right === 0) throw new FormulaError('Division by zero', pos);
+      if (right === 0) throw new FormulaError('division-by-zero', 'Division by zero', {}, pos);
       return left / right;
     case '%':
-      if (right === 0) throw new FormulaError('Division by zero', pos);
+      if (right === 0) throw new FormulaError('division-by-zero', 'Division by zero', {}, pos);
       return left % right;
     default:
-      throw new FormulaError(`Unsupported operator "${op}"`, pos);
+      throw new FormulaError('unsupported-operator', `Unsupported operator "${op}"`, { op }, pos);
   }
 }
 
 /** Evaluates a formula against price *units* (not micros). */
 export function evaluateFormula(expression: string, scope: FormulaScope): number {
-  if (!expression.trim()) throw new FormulaError('Formula is empty');
+  if (!expression.trim()) throw new FormulaError('empty', 'Formula is empty');
   const result = new Parser(tokenize(expression), scope).parse();
-  if (!Number.isFinite(result)) throw new FormulaError('Formula did not produce a number');
+  if (!Number.isFinite(result)) throw new FormulaError('not-finite', 'Formula did not produce a number');
   return result;
 }
 
 /** Cheap syntax check for live UI feedback, using neutral sample values. */
-export function validateFormula(expression: string): { ok: true } | { ok: false; error: string } {
+export function validateFormula(
+  expression: string,
+): { ok: true } | { ok: false; error: FormulaError } {
   try {
     evaluateFormula(expression, { current: 4.99, base: 4.99 });
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'Invalid formula' };
+    return {
+      ok: false,
+      error:
+        error instanceof FormulaError ? error : new FormulaError('not-finite', String(error)),
+    };
   }
 }

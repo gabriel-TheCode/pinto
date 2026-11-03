@@ -1,0 +1,17 @@
+{
+  "extName": {
+    "message": "Pinto — bulk pricing for Google Play",
+    "description": "Extension name shown in the Chrome Web Store and chrome://extensions."
+  },
+  "extShortName": {
+    "message": "Pinto"
+  },
+  "extDescription": {
+    "message": "Change Google Play prices across many countries at once: pick a change, choose the countries, review every price, then apply.",
+    "description": "Store and chrome://extensions description. 132 characters maximum."
+  },
+  "actionTitle": {
+    "message": "Pinto — bulk pricing for Google Play",
+    "description": "Tooltip of the toolbar button."
+  }
+}

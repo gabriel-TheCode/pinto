@@ -7,6 +7,9 @@
  * matters when the host page is a large Angular app that is redesigned often.
  */
 
+import { contentTranslator } from '@/i18n/content';
+import type { Locale } from '@/i18n/core';
+
 const HOST_ID = 'pinto-root';
 const PANEL_WIDTH = 460;
 
@@ -16,6 +19,38 @@ export interface InjectedUi {
   toggle(): void;
   isOpen(): boolean;
   destroy(): void;
+}
+
+// --- Localisation ------------------------------------------------------------
+
+/**
+ * Text nodes and attributes are tagged with their dictionary key rather than
+ * written once, so a language change in any Pinto surface re-labels the
+ * launcher and the window bar in place. Every shadow root Pinto creates is
+ * registered here.
+ */
+type ContentKey = Parameters<ReturnType<typeof contentTranslator>>[0];
+
+const roots = new Set<ShadowRoot>();
+let t = contentTranslator('en');
+
+function label(root: ParentNode): void {
+  for (const node of root.querySelectorAll<HTMLElement>('[data-i18n]')) {
+    node.textContent = t(node.dataset.i18n as ContentKey);
+  }
+  for (const node of root.querySelectorAll<HTMLElement>('[data-i18n-label]')) {
+    const text = t(node.dataset.i18nLabel as ContentKey);
+    node.setAttribute('title', text);
+    node.setAttribute('aria-label', text);
+  }
+  for (const node of root.querySelectorAll<HTMLElement>('[data-i18n-aria]')) {
+    node.setAttribute('aria-label', t(node.dataset.i18nAria as ContentKey));
+  }
+}
+
+export function setContentLocale(locale: Locale): void {
+  t = contentTranslator(locale);
+  roots.forEach(label);
 }
 
 const STYLES = `
@@ -44,6 +79,9 @@ const STYLES = `
   }
   .launcher:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(16,24,40,.18), 0 18px 40px rgba(16,24,40,.24); }
   .launcher:active { transform: translateY(0); }
+  .launcher:focus-visible, .panel .bar button:focus-visible, .inline:focus-visible {
+    outline: 2px solid #df301c; outline-offset: 2px;
+  }
   .launcher[hidden] { display: none; }
   .launcher .mark {
     width: 22px; height: 22px; border-radius: 7px;
@@ -140,6 +178,18 @@ const STYLES = `
   .inline .cta { color: #a02114; font-weight: 600; }
 `;
 
+/** Window-bar icons. Inline SVG: glyphs like ⇤ render differently on every OS. */
+const svg = (d: string) =>
+  `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONS = {
+  dockLeft: svg('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M6 2.5v11"/>'),
+  dockRight: svg('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M10 2.5v11"/>'),
+  float: svg('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><rect x="7" y="7" width="5" height="4" rx=".5"/>'),
+  collapse: svg('<path d="M4 6l4 4 4-4"/>'),
+  expand: svg('<path d="M6 4l4 4-4 4"/>'),
+  close: svg('<path d="M4 4l8 8M12 4l-8 8"/>'),
+};
+
 type Dock = 'right' | 'left' | 'float';
 
 interface PanelState {
@@ -188,25 +238,33 @@ export function injectUi(panelUrl: string): InjectedUi {
   const launcher = document.createElement('button');
   launcher.className = 'launcher';
   launcher.type = 'button';
+  launcher.dataset.i18nLabel = 'content.launcherLabel';
   launcher.innerHTML =
-    '<span class="mark">P.</span><span>Bulk pricing</span><span class="kbd">⇧P</span>';
+    '<span class="mark" aria-hidden="true">P.</span><span data-i18n="content.launcher"></span>' +
+    '<span class="kbd" aria-hidden="true">⇧P</span>';
 
   const panel = document.createElement('div');
   panel.className = 'panel';
   panel.dataset.open = 'false';
+  // A non-modal window over Play Console. While closed it is inert: out of
+  // the tab order and the accessibility tree, not merely transparent.
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'false');
+  panel.dataset.i18nAria = 'content.frameTitle';
+  panel.inert = true;
 
   // The window chrome — drag bar, dock/collapse controls — lives in the shadow
   // root, not the iframe, because moving and resizing the frame has to happen
   // from outside the frame's own document.
   panel.innerHTML = `
-    <div class="bar" data-role="bar">
-      <span class="mark"></span>
-      <span class="title">Pinto</span>
-      <button data-act="dock-left" title="Dock left" aria-label="Dock left">⇤</button>
-      <button data-act="dock-right" title="Dock right" aria-label="Dock right">⇥</button>
-      <button data-act="float" title="Float" aria-label="Float window">▭</button>
-      <button data-act="collapse" title="Collapse" aria-label="Collapse">▾</button>
-      <button data-act="close" title="Close (Esc)" aria-label="Close">✕</button>
+    <div class="bar" data-role="bar" data-i18n-label="content.dragHint">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="title" data-i18n="content.title"></span>
+      <button type="button" data-act="dock-left" data-i18n-label="content.dockLeft">${ICONS.dockLeft}</button>
+      <button type="button" data-act="dock-right" data-i18n-label="content.dockRight">${ICONS.dockRight}</button>
+      <button type="button" data-act="float" data-i18n-label="content.float">${ICONS.float}</button>
+      <button type="button" data-act="collapse" data-i18n-label="content.collapse">${ICONS.collapse}</button>
+      <button type="button" data-act="close" data-i18n-label="content.close">${ICONS.close}</button>
     </div>
     <div class="body">
       <div class="resize edge" data-role="resize-edge"></div>
@@ -215,12 +273,14 @@ export function injectUi(panelUrl: string): InjectedUi {
     <div class="shield" data-role="shield"></div>`;
 
   const iframe = document.createElement('iframe');
-  iframe.setAttribute('title', 'Pinto — bulk pricing for Google Play');
+  iframe.dataset.i18nLabel = 'content.frameTitle';
   iframe.setAttribute('allow', 'clipboard-write');
   panel.querySelector('.body')!.prepend(iframe);
 
   shadow.append(launcher, panel);
   document.documentElement.append(host);
+  roots.add(shadow);
+  label(shadow);
 
   const bar = panel.querySelector<HTMLElement>('[data-role="bar"]')!;
   const collapseBtn = panel.querySelector<HTMLElement>('[data-act="collapse"]')!;
@@ -241,8 +301,10 @@ export function injectUi(panelUrl: string): InjectedUi {
   const render = () => {
     panel.dataset.dock = state.dock;
     panel.dataset.collapsed = String(state.collapsed);
-    collapseBtn.textContent = state.collapsed ? '▸' : '▾';
-    collapseBtn.setAttribute('title', state.collapsed ? 'Expand' : 'Collapse');
+    collapseBtn.innerHTML = state.collapsed ? ICONS.expand : ICONS.collapse;
+    collapseBtn.dataset.i18nLabel = state.collapsed ? 'content.expand' : 'content.collapse';
+    collapseBtn.setAttribute('aria-expanded', String(!state.collapsed));
+    label(panel);
     for (const act of ['dock-left', 'dock-right', 'float']) {
       const on = state.dock === act.replace('dock-', '');
       panel.querySelector(`[data-act="${act}"]`)?.setAttribute('data-on', String(on));
@@ -395,14 +457,20 @@ export function injectUi(panelUrl: string): InjectedUi {
       }
       open = true;
       render();
+      panel.inert = false;
       panel.dataset.open = 'true';
       launcher.hidden = true;
       iframe.focus();
     },
     close() {
+      const hadFocus = shadow.activeElement !== null || document.activeElement === host;
       open = false;
       panel.dataset.open = 'false';
+      panel.inert = true;
       launcher.hidden = false;
+      // Focus was inside a panel that is now gone; hand it back to the
+      // launcher so the keyboard is not stranded in an invisible frame.
+      if (hadFocus) launcher.focus();
     },
     toggle() {
       if (open) api.close();
@@ -410,6 +478,7 @@ export function injectUi(panelUrl: string): InjectedUi {
     },
     destroy() {
       window.removeEventListener('resize', render);
+      roots.delete(shadow);
       host.remove();
     },
   };
@@ -441,12 +510,14 @@ export function injectInlineEntryPoint(onClick: () => void): boolean {
   button.className = 'inline';
   button.type = 'button';
   button.innerHTML =
-    '<span class="mark"></span><span>Edit these prices in bulk with Pinto</span>' +
-    '<span class="spacer"></span><span class="cta">Open →</span>';
+    '<span class="mark" aria-hidden="true"></span><span data-i18n="content.inline"></span>' +
+    '<span class="spacer"></span><span class="cta"><span data-i18n="content.inlineCta"></span> →</span>';
   button.addEventListener('click', onClick);
 
   shadow.append(style, button);
   anchor.parentElement.insertBefore(host, anchor);
+  roots.add(shadow);
+  label(shadow);
   return true;
 }
 
