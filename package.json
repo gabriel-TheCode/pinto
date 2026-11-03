@@ -1,8 +1,8 @@
 {
   "name": "pinto",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Pinto \u2014 bulk pricing for Google Play. Bulk pricing, without the bulk work.",
+  "description": "Pinto — bulk pricing for Google Play. Bulk pricing, without the bulk work.",
   "license": "MIT",
   "type": "module",
   "scripts": {

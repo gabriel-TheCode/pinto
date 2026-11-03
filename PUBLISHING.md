@@ -69,7 +69,7 @@ GitHub Pages is an alternative if you would rather serve a plain page than a
 rendered Markdown file. It changes nothing about the policy itself.
 
 Keep the policy and the manifest in step. `PRIVACY.md` names the exact scopes,
-permissions and storage keys Pinto uses, so any change to `public/manifest.json`
+permissions and stored data Pinto uses, so any change to `public/manifest.json`
 that adds a permission is also a change to that file — and reviewers do compare
 the two.
 
@@ -107,10 +107,11 @@ screen, so nothing has to be documented for them).
 | Language | English |
 | Single purpose | Bulk editing of Google Play product prices across countries |
 
-**Short description** (132 char max — the manifest description is already within
-the limit and is reused):
+**Summary** — not a field you fill: the devconsole shows "Summary from package",
+the manifest description (`extDescription` in `public/_locales/<lang>/messages.json`,
+132 characters max), so it changes only with a new package:
 
-> Bulk pricing, without the bulk work. Edit Google Play regional prices across every country from one review-before-apply workflow.
+> Change Google Play prices across many countries at once: pick a change, choose the countries, review every price, then apply.
 
 **Detailed description** — `docs/store/listing.txt` holds both descriptions,
 ready to paste. The field takes 16,000 characters and plain text only: the
@@ -149,13 +150,13 @@ answers. Use these:
 
 | Item | Justification |
 | --- | --- |
-| `storage` | Stores the user's own pricing presets, operation history with price snapshots for undo, and settings, locally in the browser. Nothing is transmitted. |
+| `storage` | Stores the user's own OAuth client ID, pricing presets, country groups, settings (language, last change applied), the package name confirmed for each app, a technical log and an operation history with the prices before and after each write, for restore — locally in the browser. Nothing is transmitted. |
 | `identity` | Runs the Google OAuth flow so the user can authorise access to their own Google Play Developer API data. |
 | `play.google.com/console/*` | The extension's entire interface is injected into Play Console monetisation pages, and the current URL identifies which app and product the user is editing. |
 | `androidpublisher.googleapis.com/*` | The Google Play Developer API, used to read and write the user's product prices. This is the extension's core function. |
-| `openidconnect.googleapis.com/*` | Reads the signed-in user's name, email and avatar to display which account is connected. |
+| `openidconnect.googleapis.com/*` | Reads the signed-in user's name, email and avatar to show which account is connected, in Settings and the toolbar popup. |
 | Remote code | **None.** All code is bundled in the package. |
-| Data usage | Tick: authentication information, website content. Then confirm the three certifications — Pinto sells nothing, transfers nothing, and uses data only for the user's own stated purpose. |
+| Data usage | Tick: personally identifiable information (name, email, avatar), authentication information, website content — exactly as in `docs/store/privacy-form.txt`. Then confirm the three certifications — Pinto sells nothing, transfers nothing, and uses data only for the user's own stated purpose. |
 
 ## 7. Submit
 

@@ -1,10 +1,13 @@
 ================================================================
-SHORT DESCRIPTION (132 characters max — separate field)
+SHORT DESCRIPTION (from the package — not a field in the devconsole)
 ================================================================
 
-Bulk pricing, without the bulk work. Edit Google Play regional prices across every country from one review-before-apply workflow.
+The store shows extDescription from public/_locales/<lang>/messages.json:
 
-(129 characters.)
+en: Change Google Play prices across many countries at once: pick a change, choose the countries, review every price, then apply.
+fr: Modifiez les prix Google Play de nombreux pays à la fois : choisissez la modification et les pays, vérifiez, puis appliquez.
+
+(125 and 124 characters.)
 
 
 ================================================================
@@ -63,7 +66,7 @@ you what will change — and skips any country edited since.
 ALSO IN THE BOX
 
 - Presets you can save, export and share with your team
-- History of every operation, with restore and a preview of what it changes
+- History of your last 50 operations, with restore and a preview of what it changes
 - CSV export for the spreadsheet someone will ask for
 - Simulation, to rehearse without sending anything
 - Built-in help, and the whole interface in English or French
@@ -80,18 +83,20 @@ Your sign-in token lives in memory and disappears when Chrome closes.
 
 BEFORE YOU INSTALL
 
-Pinto needs three things: a Play Console account that can edit prices, the Play
-Developer API switched on, and your own Google API key pasted in once.
+Pinto needs a Play Console account that can edit prices, and a Google Cloud
+project of your own: the Play Developer API switched on, the project linked to
+Play Console, and an OAuth client whose ID you paste into Pinto once.
 
-About five minutes, and the guide walks you through it. Worth knowing up front
-— because Pinto keeps no server, it cannot hold that key for you. The upside is
-that the access is yours, and you can revoke it whenever you like.
+About five minutes, and Pinto's setup checklist walks you through it, with a
+link to each page. Worth knowing up front — because Pinto keeps no server, it
+cannot hold that client for you. The upside is that the access is yours, and
+you can revoke it whenever you like.
 
 
 GOOD TO KNOW
 
-Pinto sets base prices for subscriptions and one-time products. It does not
-touch promotional offers or prepaid plans, and it does not change what existing
+Pinto sets base prices for subscription base plans and one-time products. It
+does not touch promotional offers, and it does not change what existing
 subscribers already pay — Google handles that separately, with its own notice
 rules.
 

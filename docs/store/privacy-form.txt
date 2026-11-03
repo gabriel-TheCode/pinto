@@ -12,11 +12,11 @@ JUSTIFICATION — storage  (max 1000)
 ================================================================
 Pinto stores the user's own working data locally, and nothing else.
 
-chrome.storage.local holds: the OAuth client ID the user configures; pricing presets they save; custom country groups they create; their settings, including interface language; the package name they confirmed for each Play Console app; a technical log of API operations recording region codes, product IDs and HTTP status codes but never prices; and an operation history.
+chrome.storage.local holds: the OAuth client ID the user configures; pricing presets they save; custom country groups they create; their settings (interface language, and the last change applied, offered again next time); the package name they confirmed for each Play Console app; a technical log of API operations recording region codes, product IDs, HTTP status codes and Google's error messages; and a history of the last 50 operations.
 
-The history is what makes Undo possible. Each entry keeps the product's prices exactly as they were immediately before a write, so a mistaken run can be reverted to real values rather than recomputed ones.
+Each history entry keeps the change applied, the prices before the write, the prices it wrote and why any country failed. That is what makes Restore possible: a mistaken run is reverted to real values, skipping countries edited since.
 
-chrome.storage.session holds the OAuth access token and the signed-in account's display name, so both are erased when Chrome closes.
+chrome.storage.session holds the OAuth access token and the signed-in account's name, email and avatar URL, all erased when Chrome closes.
 
 None of this is transmitted anywhere. The extension has no server, no analytics and no third-party service.
 
@@ -27,7 +27,7 @@ The identity permission runs Google's OAuth sign-in flow through chrome.identity
 
 Pinto acts strictly as the signed-in user, against that user's own developer account, using an OAuth client ID the user creates in their own Google Cloud project and enters in the extension's settings. There is no shared or developer-owned client.
 
-Scopes requested: androidpublisher, to read and update the user's own product prices; and openid, email and profile, used solely to display which account is connected in the panel header.
+Scopes requested: androidpublisher, to read and update the user's own product prices; and openid, email and profile, used solely to show which account is connected, in Pinto's Settings screen and toolbar popup.
 
 No refresh token is requested or stored. The access token is held in session memory only and never written to disk. The user can revoke access at any time at myaccount.google.com/permissions.
 
@@ -40,7 +40,7 @@ https://play.google.com/console/* — Pinto's interface is a panel injected into
 
 https://androidpublisher.googleapis.com/* — the Google Play Developer API, where the user's product prices are read and written. This is the extension's core function.
 
-https://openidconnect.googleapis.com/* — reads the signed-in user's name, email and avatar immediately after sign-in, to show which account is connected in the panel header.
+https://openidconnect.googleapis.com/* — reads the signed-in user's name, email and avatar immediately after sign-in, to show which account is connected in Pinto's Settings screen and toolbar popup.
 
 ================================================================
 CODE DISTANT
@@ -48,7 +48,8 @@ CODE DISTANT
 Select: "Non, je n'utilise pas Code distant"
 
 (The manifest sets content_security_policy.extension_pages to
-"script-src 'self'; object-src 'self'", so remotely hosted code cannot execute.
+"script-src 'self'; object-src 'self'; frame-ancestors https://play.google.com",
+so remotely hosted code cannot execute.
 Everything ships inside the package.)
 
 ================================================================

@@ -1,6 +1,6 @@
 # Pinto — Privacy Policy
 
-_Last updated: 24 August 2026_
+_Last updated: 3 November 2026_
 
 Pinto is a Chrome extension that edits Google Play product prices in bulk. This
 policy describes every piece of data it touches.
@@ -19,7 +19,7 @@ access token for these scopes:
 | Scope | Why |
 | --- | --- |
 | `https://www.googleapis.com/auth/androidpublisher` | Read and update the prices of your own Play Console products |
-| `openid`, `email`, `profile` | Show which account is connected in the panel header |
+| `openid`, `email`, `profile` | Show which account is connected, in Pinto's Settings and its toolbar popup |
 
 **Your Play Console product data.** Product ids, base plans, purchase options,
 regional prices and currencies — read from, and written to, the Google Play
@@ -27,7 +27,9 @@ Developer API.
 
 **The Play Console page you are on.** Pinto reads the current tab's URL to work
 out which app and product you are looking at. It reads the page itself only to
-attempt to find the app's package name; if that fails it asks you to type it.
+attempt to find the app's package name (if that fails it asks you to type it)
+and to find the price table its launcher is placed beside. Nothing read from the
+page is stored except the package name you confirm.
 
 ## What Pinto stores, and where
 
@@ -37,18 +39,29 @@ All storage is local to your browser. None of it is transmitted anywhere.
 
 - The OAuth client ID you configure
 - Pricing presets you save
-- Operation history: what you applied, when, and the prices as they were
-  immediately before each write (this is what makes Undo possible)
+- Operation history, for your 50 most recent operations, simulations included:
+  the change you applied and when, the prices as they were immediately before
+  each write (this is what makes Restore possible), the prices each write asked
+  for (so a restore can skip countries edited since), and, for any country that
+  was not updated, the reason, including Google's own message
 - A map of Play Console's internal app id to the package name you confirmed
 - Custom country groups you create
-- Your settings, including the panel language
-- A technical log of API operations. It records region codes, product ids and
-  API status codes. **It does not record prices.**
+- Your settings: the interface language (Automatic, English or French), and the
+  last change you applied and when, so Pinto can offer it again
+- A technical log of API operations. It records region codes, product ids, API
+  status codes and Google's error messages. Pinto does not write prices into
+  it, though an error message from Google may quote one.
+
+**Play Console's page storage (`localStorage` on play.google.com)**
+
+- The position, size and docking of Pinto's window, so it reopens where you
+  left it. Nothing else.
 
 **`chrome.storage.session` — memory only, erased when Chrome closes**
 
 - The OAuth access token
-- Your name, email address and avatar URL, to display in the header
+- Your name, email address and avatar URL, to show which account is connected
+  in Settings and in the toolbar popup
 
 Pinto never requests and never stores an OAuth refresh token, and no credential
 is ever written to disk.
@@ -61,14 +74,18 @@ Only to Google, only these:
   and asking Google to convert a reference price into local currencies
 - `accounts.google.com` — the sign-in flow
 - `openidconnect.googleapis.com` — retrieving your name, email and avatar
+- Google's image servers (`googleusercontent.com`) — loading your profile
+  picture, shown in Settings
 
 The developer of Pinto receives nothing. There is no endpoint to receive it.
 
 ## Deleting your data
 
 Removing the extension from `chrome://extensions` deletes everything Pinto
-stored. You can also clear history from the History tab at any time, and revoke
-Pinto's access to your Google account at
+stored in `chrome.storage`. The window layout kept in Play Console's page
+storage goes when you clear site data for play.google.com. You can also clear
+history at any time from **History** in the panel header, delete presets and
+groups where you use them, and revoke Pinto's access to your Google account at
 [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
 
 ## Permissions
