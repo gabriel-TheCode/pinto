@@ -41,7 +41,7 @@ export const settings = {
 
   'settings.storage.title': 'What Pinto stores',
   'settings.storage.machine':
-    'On this machine: your OAuth client ID, settings (including the last change applied), presets and groups, the history of your last 50 operations with the prices before and after each one, which package name belongs to which Play Console app, a technical log, and where the panel window sits.',
+    'On this machine: your OAuth client ID, settings (including the last change applied and the warnings you closed), presets and groups, the history of your last 50 operations with the prices before and after each one, which package name belongs to which Play Console app, a technical log, and where the panel window sits.',
   'settings.storage.session':
     'In memory for this browser session only: the access token, and your name, email and picture.',
   'settings.storage.nowhere':

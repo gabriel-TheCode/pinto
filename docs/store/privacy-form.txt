@@ -12,7 +12,7 @@ JUSTIFICATION — storage  (max 1000)
 ================================================================
 Pinto stores the user's own working data locally, and nothing else.
 
-chrome.storage.local holds: the OAuth client ID the user configures; pricing presets they save; custom country groups they create; their settings (interface language, and the last change applied, offered again next time); the package name they confirmed for each Play Console app; a technical log of API operations recording region codes, product IDs, HTTP status codes and Google's error messages; and a history of the last 50 operations.
+chrome.storage.local holds: the OAuth client ID the user configures; pricing presets they save; custom country groups they create; their settings (interface language, last change applied, warnings closed); the package name they confirmed for each Play Console app; a technical log of API calls (region codes, product IDs, status codes, Google's error messages); and a history of the last 50 operations.
 
 Each history entry keeps the change applied, the prices before the write, the prices it wrote and why any country failed. That is what makes Restore possible: a mistaken run is reverted to real values, skipping countries edited since.
 

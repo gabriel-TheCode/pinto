@@ -150,7 +150,7 @@ answers. Use these:
 
 | Item | Justification |
 | --- | --- |
-| `storage` | Stores the user's own OAuth client ID, pricing presets, country groups, settings (language, last change applied), the package name confirmed for each app, a technical log and an operation history with the prices before and after each write, for restore — locally in the browser. Nothing is transmitted. |
+| `storage` | Stores the user's own OAuth client ID, pricing presets, country groups, settings (language, last change applied, warnings closed), the package name confirmed for each app, a technical log and an operation history with the prices before and after each write, for restore — locally in the browser. Nothing is transmitted. |
 | `identity` | Runs the Google OAuth flow so the user can authorise access to their own Google Play Developer API data. |
 | `play.google.com/console/*` | The extension's entire interface is injected into Play Console monetisation pages, and the current URL identifies which app and product the user is editing. |
 | `androidpublisher.googleapis.com/*` | The Google Play Developer API, used to read and write the user's product prices. This is the extension's core function. |
