@@ -24,20 +24,42 @@ export async function poseStore(options: {
     });
   });
 
+  const store = useStore.getState();
+  const regions = store.pricing!.prices.map((price) => price.regionCode);
+
   if (options.strategy === 'tiers') {
     const { generateLadder } = await import('@/domain/regions/economicBands');
-    const regions = useStore.getState().pricing!.prices.map((price) => price.regionCode);
-    useStore.getState().setConfig({
-      strategy: generateLadder({
-        curve: options.curve ?? 'balanced',
-        baseRegion: 'US',
-        anchorMicros: 4_990_000,
-        restrictTo: regions,
-      }),
+    const { translator } = await import('@/i18n');
+    const { useI18n } = await import('@/i18n/react');
+    const { bandName } = await import('@/i18n/describe');
+    const t = translator(useI18n.getState().locale);
+    const ladder = generateLadder({
+      curve: options.curve ?? 'balanced',
+      baseRegion: 'US',
+      anchorMicros: 4_990_000,
+      restrictTo: regions,
+      nameOf: (band) => bandName(t, band.id, band.label),
     });
+    store.setStrategy(ladder);
+    store.setSelection(Object.keys(ladder.assignment));
+  }
+  if (options.strategy === 'percentage') {
+    store.setStrategy({ kind: 'percentage', percent: 10 });
   }
 
-  if (options.screen) useStore.getState().setScreen(options.screen as never);
+  // `screen` is a step of the workspace or one of the side views.
+  const steps = ['strategy', 'markets', 'review'];
+  const views = ['history', 'settings', 'help'];
+  if (options.screen && steps.includes(options.screen)) store.setStep(options.screen as never);
+  if (options.screen && views.includes(options.screen)) {
+    if (options.screen === 'history') await store.loadHistory();
+    store.setView(options.screen as never);
+  }
+  if (options.screen === 'result') {
+    await store.loadHistory();
+    const [latest] = useStore.getState().history;
+    if (latest) useStore.setState({ lastOperation: latest });
+  }
 
   /*
    * Wait for Google's conversion table, rather than sleeping and hoping.
@@ -46,7 +68,11 @@ export async function poseStore(options: {
    * command produced different images. Whichever source a shot ends up using
    * has to be the same one every time.
    */
-  await waitFor(() => useStore.getState().conversionTable != null, 5_000);
+  const { conversionKeyOf } = await import('@/app/store');
+  if (conversionKeyOf(useStore.getState())) {
+    await useStore.getState().ensureConversion();
+    await waitFor(() => useStore.getState().conversionTable != null, 5_000);
+  }
 
   // Then let React paint what just landed.
   await new Promise((resolve) => setTimeout(resolve, 400));

@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   apiMoneyToMicros,
-  formatMicros,
-  formatPercent,
   isOnGranularity,
   microsToApiMoney,
   minorUnitMicros,
@@ -53,23 +51,5 @@ describe('currency granularity', () => {
 
   it('falls back to two decimals for an unknown currency instead of failing', () => {
     expect(minorUnitMicros('ZZZ')).toBe(10_000);
-  });
-});
-
-describe('formatting', () => {
-  it('uses the currency decimal count, not the locale default', () => {
-    expect(formatMicros(1_200_000_000, 'JPY')).toBe('JPY 1,200');
-    expect(formatMicros(4_990_000, 'USD')).toBe('USD 4.99');
-  });
-
-  it('renders an absent price as a dash', () => {
-    expect(formatMicros(null, 'USD')).toBe('—');
-  });
-
-  it('signs percentages and keeps one decimal only when it matters', () => {
-    expect(formatPercent(0.1)).toBe('+10%');
-    expect(formatPercent(-0.203)).toBe('-20%');
-    expect(formatPercent(0.043)).toBe('+4.3%');
-    expect(formatPercent(null)).toBe('—');
   });
 });

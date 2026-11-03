@@ -1,91 +1,177 @@
 import { useEffect, useState } from 'react';
-import type { AuthState } from '@/services/messages';
+import type { AuthState, PintoErrorPayload } from '@/services/messages';
 import type { PageContext } from '@/types';
-import { send } from '@/services/client';
-import { Button } from '@/components/Button';
-import { Badge } from '@/components/Feedback';
+import { asPayload, send } from '@/services/client';
+import { isPlayConsoleUrl } from '@/services/playConsoleUrl';
+import { Rich, syncLocale, useT } from '@/i18n/react';
+import { Button, Callout, ErrorPanel, IS_MAC, Icon, Logo, Skeleton } from '@/ui';
+
+const PLAY_CONSOLE = 'https://play.google.com/console';
+
+type Status =
+  | { state: 'loading' }
+  | { state: 'failed'; error: PintoErrorPayload }
+  | { state: 'ready'; auth: AuthState; context: PageContext };
+
+async function readStatus(): Promise<Status> {
+  try {
+    const [auth, context] = await Promise.all([send({ type: 'auth/state' }), send({ type: 'context/get' })]);
+    return { state: 'ready', auth, context };
+  } catch (error) {
+    return { state: 'failed', error: asPayload(error) };
+  }
+}
 
 /**
  * The toolbar popup is a status surface, not a second app: it says whether
  * Pinto is connected and whether the current tab is somewhere it can work,
- * then gets out of the way. All real work happens in the panel, next to the
- * prices it is editing.
+ * then offers the one action that gets there. All real work happens in the
+ * panel, next to the prices it is editing.
  */
 export function Popup() {
-  const [auth, setAuth] = useState<AuthState | null>(null);
-  const [context, setContext] = useState<PageContext | null>(null);
+  const t = useT();
+  const [status, setStatus] = useState<Status>({ state: 'loading' });
 
+  useEffect(() => syncLocale(), []);
   useEffect(() => {
-    void Promise.all([send({ type: 'auth/state' }), send({ type: 'context/get' })])
-      .then(([authState, pageContext]) => {
-        setAuth(authState);
-        setContext(pageContext);
-      })
-      .catch(() => undefined);
+    void readStatus().then(setStatus);
   }, []);
 
-  const openPanel = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id === undefined) return;
-    await chrome.tabs.sendMessage(tab.id, { type: 'content/openPanel' }).catch(() => undefined);
-    window.close();
+  const retry = () => {
+    setStatus({ state: 'loading' });
+    void readStatus().then(setStatus);
   };
 
   return (
-    <div className="flex flex-col gap-3 bg-white p-3.5">
-      <div className="flex items-center gap-2">
-        <div className="grid size-6 place-items-center rounded-[7px] bg-gradient-to-br from-[#ff9100] to-[#df301c] text-[11px] font-bold text-white">
-          P.
+    <div className="flex flex-col gap-3 bg-white p-4">
+      <header className="flex items-center gap-2.5">
+        <Logo size={28} />
+        <div className="flex min-w-0 flex-col">
+          <h1 className="text-body font-semibold tracking-[-0.01em] text-ink-900">{t('app.name')}</h1>
+          <p className="text-small text-ink-500">{t('app.tagline')}</p>
         </div>
-        <div className="flex-1">
-          <p className="text-[13px] font-semibold tracking-[-0.015em] text-ink-900">Pinto</p>
-          <p className="text-[11px] text-ink-500">Bulk pricing, without the bulk work.</p>
+      </header>
+      {status.state === 'loading' ? (
+        <div role="status" aria-label={t('popup.checking')} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5 rounded-lg border border-ink-200 px-3 py-3">
+            <Skeleton className="h-3 w-3/4" />
+            <Skeleton className="h-3 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <Skeleton className="h-9 w-full rounded-lg" />
         </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5 rounded-lg border border-ink-200 p-2.5">
-        <Row
-          label="Account"
-          value={auth?.signedIn ? (auth.email ?? 'Signed in') : 'Not signed in'}
-          tone={auth?.signedIn ? 'rise' : 'warn'}
-        />
-        <Row
-          label="This tab"
-          value={context?.supported ? 'Pricing page' : 'Not a pricing page'}
-          tone={context?.supported ? 'rise' : 'neutral'}
-        />
-        {context?.packageName && <Row label="App" value={context.packageName} tone="neutral" />}
-      </div>
-
-      {context?.supported ? (
-        <Button variant="primary" onClick={() => void openPanel()}>
-          Open Pinto
-        </Button>
+      ) : status.state === 'failed' ? (
+        <ErrorPanel error={status.error} onRetry={retry} />
       ) : (
-        <p className="text-[11.5px] leading-relaxed text-ink-500">
-          Open a Play Console subscription, one-time product or pricing page, then click the Pinto
-          launcher — or press <kbd className="font-mono">⇧P</kbd>.
-        </p>
+        <Ready auth={status.auth} context={status.context} />
       )}
     </div>
   );
 }
 
-function Row({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: 'rise' | 'warn' | 'neutral';
-}) {
+function Ready({ auth, context }: { auth: AuthState; context: PageContext }) {
+  const t = useT();
+  const [opening, setOpening] = useState(false);
+  /** A tab with no content script: open before Pinto was installed or updated. */
+  const [staleTab, setStaleTab] = useState<number | null>(null);
+  const onConsole = isPlayConsoleUrl(context.url);
+  const openPanel = async () => {
+    setOpening(true);
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id === undefined) {
+      setOpening(false);
+      return;
+    }
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: 'content/openPanel' });
+      window.close();
+    } catch {
+      setStaleTab(tab.id);
+      setOpening(false);
+    }
+  };
+
+  const reloadTab = async (tabId: number) => {
+    await chrome.tabs.reload(tabId);
+    window.close();
+  };
+
+  const openConsole = async () => {
+    await chrome.tabs.create({ url: PLAY_CONSOLE });
+    window.close();
+  };
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-14 shrink-0 text-[11px] text-ink-500">{label}</span>
-      <Badge tone={tone} className="max-w-[190px] truncate">
-        {value}
-      </Badge>
-    </div>
+    <>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-lg border border-ink-200 px-3 py-2.5 text-small">
+        <Row
+          label={t('popup.account')}
+          value={auth.signedIn ? (auth.email ?? t('popup.account.signedIn')) : t('popup.account.signedOut')}
+          ok={auth.signedIn}
+        />
+        <Row
+          label={t('popup.tab')}
+          value={
+            context.supported ? t('popup.tab.pricing') : onConsole ? t('popup.tab.console') : t('popup.tab.other')
+          }
+          ok={context.supported}
+        />
+        {context.packageName && <Row label={t('popup.app')} value={context.packageName} mono />}
+      </dl>
+
+      {staleTab !== null ? (
+        <Callout
+          tone="warn"
+          role="alert"
+          title={t('popup.stale.title')}
+          action={
+            <Button size="sm" variant="primary" icon="refresh" onClick={() => void reloadTab(staleTab)}>
+              {t('popup.stale.action')}
+            </Button>
+          }
+        >
+          {t('popup.stale.body')}
+        </Callout>
+      ) : context.supported ? (
+        <Button variant="primary" block loading={opening} onClick={() => void openPanel()}>
+          {t('popup.open')}
+        </Button>
+      ) : onConsole ? (
+        <p className="text-small text-ink-600">{t('popup.consoleHint')}</p>
+      ) : (
+        <>
+          <p className="text-small text-ink-600">{t('popup.otherHint')}</p>
+          <Button variant="primary" block iconAfter="external" onClick={() => void openConsole()}>
+            {t('action.openPlayConsole')}
+          </Button>
+        </>
+      )}
+
+      {onConsole && staleTab === null && (
+        <p className="text-small text-ink-500">
+          <Rich text={t(IS_MAC ? 'popup.shortcut.mac' : 'popup.shortcut.other')} />
+        </p>
+      )}
+    </>
+  );
+}
+
+function Row({ label, value, ok, mono }: { label: string; value: string; ok?: boolean; mono?: boolean }) {
+  return (
+    <>
+      <dt className="text-ink-500">{label}</dt>
+      <dd className="flex min-w-0 items-center gap-1.5 text-ink-900">
+        {ok !== undefined && (
+          <Icon
+            name={ok ? 'success' : 'dot'}
+            size={14}
+            className={ok ? 'text-success-500' : 'text-ink-400'}
+          />
+        )}
+        <span className={mono ? 'truncate font-mono' : 'truncate'} title={value}>
+          {value}
+        </span>
+      </dd>
+    </>
   );
 }

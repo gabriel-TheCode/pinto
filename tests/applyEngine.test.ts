@@ -5,7 +5,8 @@ import { storage } from '@/services/storage';
 import { unitsToMicros } from '@/domain/money/money';
 import type { PlayApi } from '@/services/playApi';
 import type { ApplyRequest, ApplyProgress } from '@/services/messages';
-import type { ProductPricing, RegionCode } from '@/types';
+import type { ProductPricing, RegionCode, StrategyConfig } from '@/types';
+import { DEFAULT_ROUNDING } from '@/domain/pricing/rounding';
 import { installChromeMock } from './chromeMock';
 
 const chromeMock = installChromeMock();
@@ -23,9 +24,17 @@ class FakePlay {
     ['BR', { currency: 'BRL', micros: unitsToMicros(24.9) }],
   ]);
   rejected = new Set<RegionCode>();
+  /** Regions Google accepts but silently does not change. */
+  ignored = new Set<RegionCode>();
   writes = 0;
+  reads = 0;
+  /** Fail every read after this many (the verification read, typically). */
+  failReadsAfter = Infinity;
 
   async getPricing(): Promise<ProductPricing> {
+    if (++this.reads > this.failReadsAfter) {
+      throw new PintoError({ code: 'api/network', message: 'Could not reach Google Play.', retryable: true });
+    }
     return {
       packageName: 'com.example.app',
       kind: 'subscription',
@@ -54,11 +63,19 @@ class FakePlay {
       });
     }
     for (const [region, micros] of Object.entries(updates)) {
+      if (this.ignored.has(region)) continue;
       const existing = this.prices.get(region)!;
       this.prices.set(region, { ...existing, micros });
     }
   }
 }
+
+const CONFIG: StrategyConfig = {
+  strategy: { kind: 'percentage', percent: 10 },
+  rounding: DEFAULT_ROUNDING,
+  floorMicros: null,
+  ceilingMicros: null,
+};
 
 function request(updates: Record<RegionCode, number>, dryRun = false): ApplyRequest {
   return {
@@ -68,7 +85,7 @@ function request(updates: Record<RegionCode, number>, dryRun = false): ApplyRequ
     basePlanId: 'monthly',
     updates,
     dryRun,
-    strategyLabel: '+10%',
+    config: CONFIG,
   };
 }
 
@@ -113,7 +130,49 @@ describe('happy path', () => {
     await applyPricing(play as unknown as PlayApi, request({ US: unitsToMicros(5.49) }), track);
     const history = await storage.getHistory();
     expect(history).toHaveLength(1);
-    expect(history[0]!.strategyLabel).toBe('+10%');
+    // Structured, so it can be described in whichever language is current.
+    expect(history[0]!.config).toEqual(CONFIG);
+    expect(history[0]!.requested).toBe(1);
+    expect(history[0]!.strategyLabel).toBeUndefined();
+  });
+
+  it('records the prices it asked for, so a later restore can spot edits made since', async () => {
+    const play = new FakePlay();
+    const updates = { US: unitsToMicros(5.49), FR: unitsToMicros(5.49) };
+    const record = await applyPricing(play as unknown as PlayApi, request(updates), track);
+    expect(record.written).toEqual(updates);
+  });
+
+  it('reads the product back after an accepted atomic write and reports what really landed', async () => {
+    const play = new FakePlay();
+    play.ignored.add('FR');
+    const record = await applyPricing(
+      play as unknown as PlayApi,
+      request({ US: unitsToMicros(5.49), FR: unitsToMicros(5.49) }),
+      track,
+    );
+    expect(play.writes).toBe(1);
+    expect(play.reads).toBe(2); // snapshot + verification
+    expect(record.status).toBe('partial');
+    expect(record.regionsAffected).toBe(1);
+    expect(record.failures).toEqual([{ regionCode: 'FR', code: 'apply/not-applied' }]);
+    expect(progress.some((event) => event.phase === 'verifying')).toBe(true);
+  });
+
+  it('records an accepted write as unverified when the read-back fails', async () => {
+    const play = new FakePlay();
+    play.failReadsAfter = 1;
+    const record = await applyPricing(
+      play as unknown as PlayApi,
+      request({ US: unitsToMicros(5.49), FR: unitsToMicros(5.49) }),
+      track,
+    );
+    expect(record.status).toBe('unverified');
+    // What Google accepted, flagged as unproven by the status.
+    expect(record.regionsAffected).toBe(2);
+    expect(record.failures).toEqual([]);
+    expect((await storage.getHistory())[0]!.status).toBe('unverified');
+    expect(progress.at(-1)!.phase).toBe('done');
   });
 });
 
@@ -194,7 +253,117 @@ describe('partial failure', () => {
       request({ US: unitsToMicros(5.49), BR: unitsToMicros(27.4) }),
       track,
     );
-    expect(record.failures[0]!.reason).toMatch(/BR/);
+    expect(record.failures).toHaveLength(1);
+    expect(record.failures[0]).toMatchObject({ regionCode: 'BR', code: 'api/rejected' });
+    // Google's own words, kept verbatim as technical detail.
+    expect(record.failures[0]!.detail).toMatch(/BR/);
+    expect(record.failures[0]!.reason).toBeUndefined();
+  });
+
+  it('stops bisecting on a rate limit and reports the rest as not attempted, with the real reason', async () => {
+    const play = new FakePlay();
+    play.rejected.add('BR');
+    const realWrite = play.updatePrices.bind(play);
+    // The atomic attempt is rejected (BR); the first bisect call is rate-limited.
+    play.updatePrices = vi.fn(async (...args: Parameters<FakePlay['updatePrices']>) => {
+      if (play.writes >= 1) {
+        play.writes++;
+        throw new PintoError({ code: 'api/rate-limited', message: 'Rate limited.', retryable: true });
+      }
+      return realWrite(...args);
+    });
+
+    const record = await applyPricing(
+      play as unknown as PlayApi,
+      request({
+        US: unitsToMicros(5.49),
+        FR: unitsToMicros(5.49),
+        DE: unitsToMicros(5.49),
+        BR: unitsToMicros(27.4),
+      }),
+      track,
+    );
+
+    // The atomic attempt, then one bisect call that hits the limit: it stops there.
+    expect(play.writes).toBe(2);
+    expect(record.status).toBe('failed');
+    expect(record.regionsAffected).toBe(0);
+    expect(record.failures.map((f) => f.regionCode).sort()).toEqual(['BR', 'DE', 'FR', 'US']);
+    // Never pinned on the countries: every one carries the rate limit.
+    expect(new Set(record.failures.map((f) => f.code))).toEqual(new Set(['api/rate-limited']));
+    expect(play.prices.get('US')!.micros).toBe(unitsToMicros(4.99));
+  });
+
+  it('keeps what landed before an interruption', async () => {
+    const play = new FakePlay();
+    play.rejected.add('BR');
+    const realWrite = play.updatePrices.bind(play);
+    let calls = 0;
+    play.updatePrices = vi.fn(async (...args: Parameters<FakePlay['updatePrices']>) => {
+      calls++;
+      // atomic and whole-batch retry (rejected), first half (accepted), then
+      // the session expires on the second half.
+      if (calls >= 4) throw new PintoError({ code: 'auth/expired', message: 'Expired.', retryable: true });
+      return realWrite(...args);
+    });
+
+    const record = await applyPricing(
+      play as unknown as PlayApi,
+      request({
+        US: unitsToMicros(5.49),
+        FR: unitsToMicros(5.49),
+        DE: unitsToMicros(5.49),
+        BR: unitsToMicros(27.4),
+      }),
+      track,
+    );
+
+    expect(record.status).toBe('partial');
+    expect(record.regionsAffected).toBe(2);
+    expect(record.failures.map((f) => [f.regionCode, f.code])).toEqual([
+      ['DE', 'auth/expired'],
+      ['BR', 'auth/expired'],
+    ]);
+  });
+});
+
+describe('stale review', () => {
+  it('refuses to write when a reviewed price changed in the meantime', async () => {
+    const play = new FakePlay();
+    const req: ApplyRequest = {
+      ...request({ US: unitsToMicros(5.49), FR: unitsToMicros(5.49) }),
+      expected: {
+        US: { currency: 'USD', micros: unitsToMicros(4.49) }, // was 4.49 at review, 4.99 now
+        FR: { currency: 'EUR', micros: unitsToMicros(4.99) },
+      },
+    };
+    const error = await applyPricing(play as unknown as PlayApi, req, track).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PintoError);
+    expect(error).toMatchObject({ code: 'apply/stale', params: { count: 1 }, detail: 'US' });
+    expect(play.writes).toBe(0);
+    expect(await storage.getHistory()).toEqual([]);
+  });
+
+  it('refuses to write when a country now bills in another currency', async () => {
+    const play = new FakePlay();
+    const req: ApplyRequest = {
+      ...request({ FR: unitsToMicros(5.49) }),
+      expected: { FR: { currency: 'USD', micros: unitsToMicros(4.99) } },
+    };
+    await expect(applyPricing(play as unknown as PlayApi, req, track)).rejects.toMatchObject({
+      code: 'apply/stale',
+    });
+    expect(play.writes).toBe(0);
+  });
+
+  it('writes when everything still matches what was reviewed', async () => {
+    const play = new FakePlay();
+    const req: ApplyRequest = {
+      ...request({ US: unitsToMicros(5.49) }),
+      expected: { US: { currency: 'USD', micros: unitsToMicros(4.99) } },
+    };
+    const record = await applyPricing(play as unknown as PlayApi, req, track);
+    expect(record.status).toBe('succeeded');
   });
 });
 
@@ -207,9 +376,12 @@ describe('unrecoverable failures', () => {
 
     await expect(
       applyPricing(play as unknown as PlayApi, request({ US: unitsToMicros(5.49) }), track),
-    ).rejects.toThrow('Your session has expired.');
+    ).rejects.toMatchObject({ code: 'auth/expired' });
 
-    expect((await storage.getHistory())[0]!.status).toBe('failed');
+    const [record] = await storage.getHistory();
+    expect(record!.status).toBe('failed');
+    expect(record!.regionsAffected).toBe(0);
+    expect(record!.failures).toEqual([{ regionCode: 'US', code: 'auth/expired' }]);
   });
 });
 
@@ -226,5 +398,36 @@ describe('undo', () => {
 
     expect(play.prices.get('US')!.micros).toBe(unitsToMicros(4.99));
     expect(play.prices.get('FR')!.micros).toBe(unitsToMicros(4.99));
+  });
+
+  it('links the restore to the operation it reverts', async () => {
+    const play = new FakePlay();
+    const record = await applyPricing(
+      play as unknown as PlayApi,
+      request({ US: unitsToMicros(5.49) }),
+      track,
+    );
+    const restore = revertRequest(record);
+    expect(restore.revertOf).toBe(record.id);
+    expect(restore.dryRun).toBe(false);
+    const restored = await applyPricing(play as unknown as PlayApi, restore, track);
+    expect(restored.revertOf).toBe(record.id);
+    expect(progress.filter((p) => p.revert).length).toBeGreaterThan(0);
+  });
+
+  it('restores only the countries asked for', async () => {
+    const play = new FakePlay();
+    const record = await applyPricing(
+      play as unknown as PlayApi,
+      request({ US: unitsToMicros(5.49), FR: unitsToMicros(5.49), DE: unitsToMicros(5.49) }),
+      track,
+    );
+    const restore = revertRequest(record, ['FR']);
+    expect(restore.updates).toEqual({ FR: unitsToMicros(4.99) });
+
+    await applyPricing(play as unknown as PlayApi, restore, track);
+    expect(play.prices.get('FR')!.micros).toBe(unitsToMicros(4.99));
+    expect(play.prices.get('US')!.micros).toBe(unitsToMicros(5.49));
+    expect(play.prices.get('DE')!.micros).toBe(unitsToMicros(5.49));
   });
 });

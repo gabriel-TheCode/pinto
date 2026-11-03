@@ -18,6 +18,14 @@ const SUBSCRIPTION_SEGMENTS = ['subscriptions', 'subscription'];
 const INAPP_SEGMENTS = ['managed-products', 'one-time-products', 'inappproducts', 'in-app-products'];
 const PRICING_SEGMENTS = ['pricing', 'app-pricing'];
 
+/**
+ * An Android application id as Play accepts it: two or more dot-separated
+ * segments, each starting with a letter. Upper case is legal, if unusual.
+ */
+export function isPackageName(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(value.trim());
+}
+
 export function isPlayConsoleUrl(url: string): boolean {
   try {
     const parsed = new URL(url);

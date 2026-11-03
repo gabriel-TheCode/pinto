@@ -1,0 +1,95 @@
+import type { Translation } from '@/i18n/core';
+import type { common as en } from '../en/common';
+
+export const common: Translation<typeof en> = {
+  'app.name': 'Pinto',
+  'app.tagline': 'Modification en masse des prix Google Play',
+
+  'action.cancel': 'Annuler',
+  'action.back': 'Retour',
+  'action.next': 'Suivant',
+  'action.close': 'Fermer',
+  'action.retry': 'Réessayer',
+  'action.dismiss': 'Masquer',
+  'action.done': 'Terminer',
+  'action.save': 'Enregistrer',
+  'action.delete': 'Supprimer',
+  'action.remove': 'Retirer',
+  'action.copy': 'Copier',
+  'action.copied': 'Copié',
+  'action.exportCsv': 'Exporter en CSV',
+  'action.reload': 'Recharger',
+  'action.clear': 'Effacer',
+  'action.confirm': 'Confirmer',
+  'action.showAll': 'Tout afficher',
+  'action.showLess': 'Afficher moins',
+  'action.openPlayConsole': 'Ouvrir la Play Console',
+
+  'state.loading': 'Chargement…',
+  'state.none': 'Aucun',
+
+  'count.countries': { one: '{count} pays', other: '{count} pays' },
+  'count.products': { one: '{count} produit', other: '{count} produits' },
+  'count.prices': { one: '{count} prix', other: '{count} prix' },
+
+  'product.kind.subscription': 'Abonnement',
+  'product.kind.onetime': 'Produit ponctuel',
+  'product.kind.inapp': 'Produit géré (ancien système)',
+  'product.group.subscription': 'Abonnements',
+  'product.group.onetime': 'Produits ponctuels',
+  'product.group.inapp': 'Produits gérés (ancien système)',
+  'product.option.buy': 'achat',
+  'product.option.rent': 'location',
+  'product.state.draft': 'brouillon',
+  'product.state.inactive': 'inactif',
+  'product.state.inactive_publishable': 'inactif',
+  'product.state.state_unspecified': 'état inconnu',
+
+  'period.year': { one: '{count} an', other: '{count} ans' },
+  'period.month': { one: '{count} mois', other: '{count} mois' },
+  'period.week': { one: '{count} semaine', other: '{count} semaines' },
+  'period.day': { one: '{count} jour', other: '{count} jours' },
+
+  'strategy.percentage.name': 'Pourcentage',
+  'strategy.percentage.blurb': 'Augmenter ou baisser tous les prix du même pourcentage.',
+  'strategy.multiplier.name': 'Multiplicateur',
+  'strategy.multiplier.blurb': 'Multiplier tous les prix par un coefficient.',
+  'strategy.fixed.name': 'Prix fixe',
+  'strategy.fixed.blurb': 'Un seul prix, converti dans la devise de chaque pays.',
+  'strategy.copy.name': 'Copier un pays',
+  'strategy.copy.blurb': 'Reprendre partout le prix actuel d’un pays, converti.',
+  'strategy.tiers.name': 'Pouvoir d’achat',
+  'strategy.tiers.blurb': 'Facturer moins là où les revenus sont plus faibles, palier par palier.',
+  'strategy.formula.name': 'Formule',
+  'strategy.formula.blurb': 'Saisir votre propre calcul.',
+
+  'strategy.summary.percentage': '{delta} sur les prix actuels',
+  'strategy.summary.multiplier': '× {factor} sur les prix actuels',
+  'strategy.summary.fixed': '{price} dans tous les pays',
+  'strategy.summary.fixedConverted': '{price}, converti par pays',
+  'strategy.summary.copy': 'Prix copié partout : {country}',
+  'strategy.summary.copyConverted': 'Prix copié et converti : {country}',
+  'strategy.summary.tiers': {
+    one: '{count} palier, référence : {country}',
+    other: '{count} paliers, référence : {country}',
+  },
+  'strategy.summary.formula': 'Formule {expression}',
+  'strategy.summary.revert': 'Prix précédents restaurés',
+  'strategy.summary.legacy': '{label}',
+
+  'operation.status.succeeded': 'Mis à jour',
+  'operation.status.partial': 'Mis à jour en partie',
+  'operation.status.failed': 'Non mis à jour',
+  'operation.status.unverified': 'Non confirmé',
+  'operation.status.dry-run': 'Simulation',
+  'operation.reverted': 'Restauré',
+
+  // Where converted prices come from, wherever converted prices are shown.
+  'conversion.google': 'Conversion aux taux de change de Google Play',
+  'conversion.loading': 'Récupération des taux de change de Google…',
+  'conversion.fallback':
+    'Conversion estimée d’après les prix de ce produit (taux de Google indisponibles)',
+
+  'a11y.selected': 'sélectionné',
+  'a11y.external': '(s’ouvre dans un nouvel onglet)',
+};

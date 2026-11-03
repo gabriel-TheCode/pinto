@@ -103,7 +103,6 @@ async function obtainToken(opts: { interactive: boolean }): Promise<StoredToken>
     throw new PintoError({
       code: 'auth/denied',
       message: 'Google did not grant access.',
-      hint: 'Make sure you approve the Play Developer API permission when signing in.',
       detail: params.get('error_description') ?? params.get('error') ?? undefined,
     });
   }
@@ -111,7 +110,6 @@ async function obtainToken(opts: { interactive: boolean }): Promise<StoredToken>
     throw new PintoError({
       code: 'auth/state-mismatch',
       message: 'Sign-in response did not match the request.',
-      hint: 'Try signing in again.',
       retryable: true,
     });
   }
@@ -122,7 +120,6 @@ async function obtainToken(opts: { interactive: boolean }): Promise<StoredToken>
     throw new PintoError({
       code: 'auth/no-token',
       message: 'Google did not return an access token.',
-      hint: 'Try signing in again.',
       retryable: true,
     });
   }
@@ -146,11 +143,8 @@ function launch(url: string, interactive: boolean): Promise<string> {
               ? 'Sign-in did not complete.'
               : 'Could not refresh the session silently.',
             // Chrome reports a closed window and a Google error page the same
-            // way, so the likeliest non-obvious cause is named here rather
-            // than leaving "cancelled" to look like the user's own doing.
-            hint: interactive
-              ? 'If you closed the window, just try again. If Google showed an error instead, the redirect URI on your OAuth client probably does not match the one below.'
-              : undefined,
+            // way; the interface names the likeliest non-obvious cause (a
+            // redirect URI mismatch) in the hint for this code.
             detail: error?.message,
             retryable: true,
           }),

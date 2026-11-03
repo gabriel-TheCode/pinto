@@ -1,4 +1,5 @@
-import type { OperationRecord, Preset, RegionCode } from '@/types';
+import type { OperationRecord, Preset, RegionCode, StrategyConfig } from '@/types';
+import { SETTINGS_KEY, type LocalePreference } from '@/i18n/preference';
 import type { CustomGroup } from '@/domain/regions/groups';
 import type { LogEntry } from './messages';
 
@@ -20,7 +21,7 @@ const LOCAL_KEYS = {
   presets: 'pinto.presets',
   history: 'pinto.history',
   groups: 'pinto.groups',
-  settings: 'pinto.settings',
+  settings: SETTINGS_KEY,
   log: 'pinto.log',
 } as const;
 
@@ -42,8 +43,11 @@ export interface StoredProfile {
 }
 
 export interface Settings {
-  /** Panel language. Chosen by the user, defaulting to the browser's. */
-  locale: 'en' | 'fr';
+  /**
+   * Interface language for every Pinto surface. `auto` follows the browser;
+   * resolved by i18n/preference.ts, which also watches it for changes.
+   */
+  locale: LocalePreference;
   /** Region used as the reference for conversions and formulas. */
   baseRegion: RegionCode;
   /** Play "regions version" sent with subscription writes. */
@@ -51,10 +55,13 @@ export interface Settings {
   /** Ask for a typed confirmation when more than this many regions change. */
   confirmThreshold: number;
   dryRunByDefault: boolean;
+  /** The last strategy applied, offered again (never pre-armed) on the next visit. */
+  lastConfig?: StrategyConfig;
+  lastAppliedAt?: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  locale: 'en',
+  locale: 'auto',
   baseRegion: 'US',
   regionsVersion: '2022/02',
   confirmThreshold: 25,

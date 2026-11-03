@@ -40,6 +40,12 @@ const MICROS = 1_000_000;
  */
 const NOW = Date.parse('2026-09-05T11:00:00Z');
 
+/** `?locale=fr` photographs the French interface; English otherwise. */
+const LOCALE =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).get('locale') === 'fr'
+    ? 'fr'
+    : 'en';
+
 const CATALOGUE = {
   unavailable: [],
   products: [
@@ -47,14 +53,16 @@ const CATALOGUE = {
       kind: 'subscription',
       productId: 'premium',
       basePlanId: 'monthly',
-      label: 'premium · monthly · 1 month',
+      label: 'premium · monthly',
+      details: { period: 'P1M' },
       regionCount: PRICES.length,
     },
     {
       kind: 'subscription',
       productId: 'premium',
       basePlanId: 'annual',
-      label: 'premium · annual · 1 year',
+      label: 'premium · annual',
+      details: { period: 'P1Y' },
       regionCount: PRICES.length,
     },
     {
@@ -62,6 +70,7 @@ const CATALOGUE = {
       productId: 'lifetime',
       basePlanId: 'buy',
       label: 'lifetime · buy',
+      details: { option: 'buy' },
       regionCount: PRICES.length,
     },
   ],
@@ -100,7 +109,8 @@ function respond(request: { type: string }): unknown {
         kind: 'subscription',
         productId: 'premium',
         basePlanId: 'monthly',
-        label: 'premium · monthly · 1 month',
+        label: 'premium · monthly',
+        details: { period: 'P1M' },
         prices: PRICES.map(([regionCode, currency, amount]) => ({
           regionCode,
           currency,
@@ -123,7 +133,9 @@ function respond(request: { type: string }): unknown {
           NGN: 380.8, INR: 29.86, IDR: 5811.6, JPY: 140.3, KES: 79.96 },
       };
     case 'settings/get':
-      return { locale: 'en' };
+      return { locale: LOCALE };
+    case 'apply/status':
+      return null;
     case 'history/list': {
       const snapshot = PRICES.map(([regionCode, currency, amount]) => ({
         regionCode,
@@ -143,10 +155,16 @@ function respond(request: { type: string }): unknown {
           kind: 'subscription',
           productId: 'premium',
           basePlanId: 'monthly',
-          strategyLabel: 'Tiers from US',
+          config: {
+            strategy: { kind: 'tiers', baseRegion: 'US', anchorMicros: 4_990_000, convert: true,
+              tiers: { T1: 1, T2: 0.8, T3: 0.6, T4: 0.45, T5: 0.35 }, assignment: { US: 'T1' } },
+            rounding: { mode: 'charm', endings: [0.99], zeroDecimalStep: 100 },
+            floorMicros: null,
+            ceilingMicros: null,
+          },
+          requested: 14,
           regionsAffected: 14,
           status: 'succeeded',
-          message: 'Updated 14 countries.',
           snapshot,
           failures: [],
         },
@@ -157,14 +175,19 @@ function respond(request: { type: string }): unknown {
           kind: 'subscription',
           productId: 'premium',
           basePlanId: 'annual',
-          strategyLabel: 'Percentage −15%',
+          config: {
+            strategy: { kind: 'percentage', percent: -15 },
+            rounding: { mode: 'charm', endings: [0.99], zeroDecimalStep: 100 },
+            floorMicros: null,
+            ceilingMicros: null,
+          },
+          requested: 14,
           regionsAffected: 12,
           status: 'partial',
-          message: 'Updated 12 of 14 countries. 2 were rejected.',
           snapshot,
           failures: [
-            { regionCode: 'TR', reason: 'Price is below the minimum for TRY.' },
-            { regionCode: 'NG', reason: 'Price is below the minimum for NGN.' },
+            { regionCode: 'TR', code: 'apply/rejected', detail: 'Price is below the minimum for TRY.' },
+            { regionCode: 'NG', code: 'apply/rejected', detail: 'Price is below the minimum for NGN.' },
           ],
         },
         {
@@ -174,10 +197,15 @@ function respond(request: { type: string }): unknown {
           kind: 'onetime',
           productId: 'lifetime',
           basePlanId: 'buy',
-          strategyLabel: 'Fixed price · USD 79.99',
+          config: {
+            strategy: { kind: 'fixed', micros: 79_990_000, baseRegion: 'US', convert: true },
+            rounding: { mode: 'charm', endings: [0.99], zeroDecimalStep: 100 },
+            floorMicros: null,
+            ceilingMicros: null,
+          },
+          requested: 14,
           regionsAffected: 14,
           status: 'succeeded',
-          message: 'Updated 14 countries.',
           snapshot,
           failures: [],
         },
@@ -199,10 +227,17 @@ export function installChromeStub(): void {
     },
     identity: { getRedirectURL: () => 'https://pinto.chromiumapp.org/' },
     storage: {
-      local: { get: async () => ({}), set: async () => {}, remove: async () => {} },
+      // The language a capture is taken in comes from ?locale=, read by the
+      // same preference code every Pinto surface uses.
+      local: {
+        get: async () => ({ 'pinto.settings': { locale: LOCALE } }),
+        set: async () => {},
+        remove: async () => {},
+      },
       session: { get: async () => ({}), set: async () => {}, remove: async () => {} },
+      onChanged: { addListener: () => {}, removeListener: () => {} },
     },
-    tabs: { query: async () => [], sendMessage: async () => {} },
+    tabs: { query: async () => [], sendMessage: async () => {}, create: async () => ({}) },
   };
 }
 
@@ -214,7 +249,8 @@ export const FIXTURE_PRODUCT = {
   kind: 'subscription' as const,
   productId: 'premium',
   basePlanId: 'monthly',
-  label: 'premium · monthly · 1 month',
+  label: 'premium · monthly',
+  details: { period: 'P1M' },
   prices: PRICES.map(([regionCode, currency, amount]) => ({
     regionCode,
     currency,

@@ -66,7 +66,7 @@ interface Shot {
  */
 const SHOTS: Record<string, Shot> = {
   pricing: {
-    screen: 'pricing',
+    screen: 'markets',
     strategy: 'tiers',
     headline: ['Every price,', 'one table.'],
     body: 'Filter your markets by search, continent, sub-region or currency. The new price sits beside the old one, with the change beside both.',
@@ -85,7 +85,7 @@ const SHOTS: Record<string, Shot> = {
     screen: 'review',
     strategy: 'tiers',
     headline: ['Nothing is written', 'until you say so.'],
-    body: 'Review splits into changing, warnings, blocked and unchanged. Blocked rows never reach Google, and every row tells you why.',
+    body: 'Review splits into changing, to check, blocked and unchanged. Blocked rows never reach Google, and every row tells you why.',
     bullets: ['Row-by-row diff', 'Warnings before writes', 'Blocked rows explained'],
     panelHeight: 660,
   },
@@ -94,14 +94,14 @@ const SHOTS: Record<string, Shot> = {
     strategy: 'tiers',
     headline: ['Undo, from a', 'real snapshot.'],
     body: 'Prices are captured immediately before every write. When a run goes wrong, put them back exactly as they were — not as they were guessed to be.',
-    bullets: ['Snapshot per operation', 'One-click undo', 'Per-country outcome'],
+    bullets: ['Snapshot per operation', 'Restore with a preview', 'Per-country outcome'],
     panelHeight: 505,
   },
   guide: {
-    screen: 'guide',
+    screen: 'help',
     headline: ['Learn it', 'in the app.'],
-    body: 'A Guide tab walks through the workflow, the strategies, the safety rails and the error messages Google actually returns — in English or French.',
-    bullets: ['Built-in guide', 'English and French', 'Real error messages'],
+    body: 'Built-in help walks through the three steps, the strategies, the safety rails and the error messages Google actually returns — in English or French.',
+    bullets: ['Built-in help', 'English and French', 'Real error messages'],
     panelHeight: 700,
   },
 };
@@ -146,13 +146,13 @@ function ScreenshotFrame({ shot }: { shot: Shot }) {
  * produce.
  */
 async function ladderChips(): Promise<[string, string, string][]> {
-  const [{ computeChangeSet }, { generateLadder }, { formatMicros }, { countryOrPlaceholder }] =
-    await Promise.all([
-      import('@/domain/pricing/computeChangeSet'),
-      import('@/domain/regions/economicBands'),
-      import('@/domain/money/money'),
-      import('@/domain/regions/countries'),
-    ]);
+  const [{ computeChangeSet }, { generateLadder }, { formatter }] = await Promise.all([
+    import('@/domain/pricing/computeChangeSet'),
+    import('@/domain/regions/economicBands'),
+    import('@/i18n/format'),
+  ]);
+  // The store listing is English; the chips use the same formatter as the panel.
+  const fmt = formatter('en');
 
   const regions = FIXTURE_PRODUCT.prices.map((price) => price.regionCode);
   const { changes } = computeChangeSet({
@@ -180,11 +180,11 @@ async function ladderChips(): Promise<[string, string, string][]> {
     .filter((change) => change && change.newMicros != null && change.newMicros !== change.currentMicros)
     .slice(0, 5)
     .map((change) => [
-      countryOrPlaceholder(change!.regionCode).name,
+      fmt.region(change!.regionCode),
       // The old price carries the currency code; repeating it on the new one
       // would just be noise in a chip that is two numbers wide.
-      formatMicros(change!.currentMicros, change!.currency),
-      formatMicros(change!.newMicros!, change!.currency, { withCode: false }),
+      fmt.money(change!.currentMicros, change!.currency),
+      fmt.money(change!.newMicros!, change!.currency, { code: false }),
     ]);
 }
 

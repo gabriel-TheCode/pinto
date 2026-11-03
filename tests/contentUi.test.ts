@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { injectInlineEntryPoint, injectUi } from '@/content/ui';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { injectInlineEntryPoint, injectUi, setContentLocale } from '@/content/ui';
 
 const PANEL = 'chrome-extension://pinto-test/src/panel/index.html';
 
@@ -27,6 +27,12 @@ function panelOf(): HTMLElement {
 function click(selector: string) {
   (host().shadowRoot!.querySelector(selector) as HTMLButtonElement).click();
 }
+
+function inShadow<T extends Element = HTMLElement>(selector: string): T {
+  return host().shadowRoot!.querySelector(selector) as T;
+}
+
+afterEach(() => setContentLocale('en'));
 
 describe('injected launcher', () => {
   it('mounts inside a shadow root so Play Console styles cannot reach it', () => {
@@ -74,6 +80,72 @@ describe('injected launcher', () => {
   it('removes itself completely on destroy', () => {
     injectUi(PANEL).destroy();
     expect(document.getElementById('pinto-root')).toBeNull();
+  });
+
+  it('keeps the closed panel out of the tab order and hands focus back on close', () => {
+    const ui = injectUi(PANEL);
+    const panel = panelOf();
+    expect(panel.inert).toBe(true);
+    ui.open();
+    expect(panel.inert).toBe(false);
+    ui.close();
+    expect(panel.inert).toBe(true);
+  });
+});
+
+describe('localised labels', () => {
+  it('labels the launcher, the window and its controls in English by default', () => {
+    injectUi(PANEL);
+    const launcher = inShadow('.launcher');
+    expect(launcher.querySelector('[data-i18n="content.launcher"]')!.textContent).toBe('Edit prices');
+    expect(launcher.getAttribute('aria-label')).toBe('Open Pinto to edit prices in bulk (Shift+P)');
+    expect(launcher.getAttribute('title')).toBe(launcher.getAttribute('aria-label'));
+    expect(inShadow('[data-act="dock-left"]').getAttribute('aria-label')).toBe('Dock to the left');
+    expect(inShadow('[data-act="close"]').getAttribute('aria-label')).toBe('Close (Esc)');
+    expect(inShadow('iframe').getAttribute('title')).toBe('Pinto — bulk pricing for Google Play');
+    expect(panelOf().getAttribute('aria-label')).toBe('Pinto — bulk pricing for Google Play');
+  });
+
+  it('gives every control on the page an accessible name', () => {
+    injectUi(PANEL);
+    for (const button of host().shadowRoot!.querySelectorAll('button')) {
+      expect(button.getAttribute('aria-label'), button.outerHTML.slice(0, 80)).toBeTruthy();
+    }
+  });
+
+  it('relabels the launcher and the bar live when the language changes', () => {
+    injectUi(PANEL).open();
+    setContentLocale('fr');
+    const launcher = inShadow('.launcher');
+    expect(launcher.querySelector('[data-i18n="content.launcher"]')!.textContent).toBe('Modifier les prix');
+    expect(launcher.getAttribute('aria-label')).toBe('Ouvrir Pinto pour modifier les prix en masse (Maj+P)');
+    expect(inShadow('[data-act="dock-left"]').getAttribute('aria-label')).toBe('Ancrer à gauche');
+    expect(inShadow('[data-act="dock-right"]').getAttribute('title')).toBe('Ancrer à droite');
+    expect(inShadow('[data-act="float"]').getAttribute('aria-label')).toBe('Fenêtre flottante');
+    expect(inShadow('[data-act="close"]').getAttribute('aria-label')).toBe('Fermer (Échap)');
+    expect(inShadow('[data-role="bar"]').getAttribute('title')).toBe('Glisser pour déplacer');
+
+    setContentLocale('en');
+    expect(inShadow('[data-act="close"]').getAttribute('aria-label')).toBe('Close (Esc)');
+  });
+
+  it('names the collapse button for what it will do, in the current language', () => {
+    injectUi(PANEL).open();
+    setContentLocale('fr');
+    const collapse = () => inShadow('[data-act="collapse"]');
+    expect(collapse().getAttribute('aria-label')).toBe('Réduire');
+    expect(collapse().getAttribute('aria-expanded')).toBe('true');
+    click('[data-act="collapse"]');
+    expect(collapse().getAttribute('aria-label')).toBe('Agrandir');
+    expect(collapse().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('labels a launcher injected after the change in the new language', () => {
+    setContentLocale('fr');
+    injectUi(PANEL);
+    expect(inShadow('.launcher').querySelector('[data-i18n="content.launcher"]')!.textContent).toBe(
+      'Modifier les prix',
+    );
   });
 });
 
@@ -165,6 +237,20 @@ describe('inline entry point', () => {
 
     (inline.shadowRoot!.querySelector('.inline') as HTMLButtonElement).click();
     expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it('is relabelled live when the language changes', () => {
+    document.body.innerHTML = `
+      <section><table><thead><tr><th>Country/Region</th></tr></thead></table></section>`;
+    injectInlineEntryPoint(vi.fn());
+    const root = document.querySelector('[data-pinto-inline]')!.shadowRoot!;
+    const text = (key: string) => root.querySelector(`[data-i18n="${key}"]`)!.textContent;
+    expect(text('content.inline')).toBe('Edit these prices in bulk with Pinto');
+    expect(text('content.inlineCta')).toBe('Open');
+
+    setContentLocale('fr');
+    expect(text('content.inline')).toBe('Modifier ces prix en masse avec Pinto');
+    expect(text('content.inlineCta')).toBe('Ouvrir');
   });
 
   it('recognises a localised header', () => {

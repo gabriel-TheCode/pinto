@@ -3,6 +3,18 @@ import { evaluateFormula, FormulaError, validateFormula } from '@/domain/formula
 
 const scope = { current: 4.99, base: 9.99 };
 
+/** The error a formula raises, as the code and params the interface words. */
+function failure(expression: string): Pick<FormulaError, 'code' | 'params'> | null {
+  try {
+    evaluateFormula(expression, scope);
+    return null;
+  } catch (error) {
+    expect(error).toBeInstanceOf(FormulaError);
+    const { code, params } = error as FormulaError;
+    return { code, params };
+  }
+}
+
 describe('formula evaluation', () => {
   it('evaluates the documented examples', () => {
     expect(evaluateFormula('current * 1.1', scope)).toBeCloseTo(5.489);
@@ -31,11 +43,11 @@ describe('formula evaluation', () => {
 
 describe('formula safety', () => {
   it('refuses unknown identifiers rather than treating them as zero', () => {
-    expect(() => evaluateFormula('cost * 2', scope)).toThrow(FormulaError);
+    expect(failure('cost * 2')).toEqual({ code: 'unknown-name', params: { name: 'cost' } });
   });
 
   it('refuses unknown functions', () => {
-    expect(() => evaluateFormula('pow(2, 3)', scope)).toThrow(/Unknown function/);
+    expect(failure('pow(2, 3)')).toEqual({ code: 'unknown-function', params: { name: 'pow' } });
   });
 
   it('cannot reach the host environment', () => {
@@ -52,16 +64,21 @@ describe('formula safety', () => {
   });
 
   it('rejects division by zero instead of returning Infinity', () => {
-    expect(() => evaluateFormula('current / 0', scope)).toThrow(/Division by zero/);
+    expect(failure('current / 0')?.code).toBe('division-by-zero');
+    expect(failure('current % 0')?.code).toBe('division-by-zero');
   });
 
   it('rejects trailing input and empty expressions', () => {
-    expect(() => evaluateFormula('current 5', scope)).toThrow(/trailing/);
-    expect(() => evaluateFormula('   ', scope)).toThrow(/empty/);
+    expect(failure('current 5')?.code).toBe('trailing-input');
+    expect(failure('   ')?.code).toBe('empty');
+    expect(failure('current *')?.code).toBe('unexpected-end');
+    expect(failure('(current')).toEqual({ code: 'expected', params: { token: ')' } });
+    expect(failure('current # 2')).toEqual({ code: 'unexpected-character', params: { char: '#' } });
+    expect(failure('1.2.3')).toEqual({ code: 'not-a-number', params: { text: '1.2.3' } });
   });
 
   it('checks the argument count of functions', () => {
-    expect(() => evaluateFormula('abs(1, 2)', scope)).toThrow(/takes/);
+    expect(failure('abs(1, 2)')).toEqual({ code: 'arity', params: { name: 'abs', min: 1, max: 1 } });
   });
 });
 
@@ -73,6 +90,9 @@ describe('validateFormula', () => {
   it('reports why an expression is invalid without throwing', () => {
     const result = validateFormula('current *');
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toBeTruthy();
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(FormulaError);
+      expect(result.error.code).toBe('unexpected-end');
+    }
   });
 });

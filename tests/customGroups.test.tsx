@@ -1,220 +1,203 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { unitsToMicros } from '@/domain/money/money';
+import { describe, expect, it } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
 import { parseCustomGroup } from '@/domain/regions/schema';
 import type { CustomGroup } from '@/domain/regions/groups';
-import type { Request } from '@/services/messages';
+import {
+  type FakeWorker,
+  type Panel,
+  chooseKind,
+  choosePercent,
+  createWorker,
+  price,
+  renderPanel,
+  startsWith,
+  toMarkets,
+  workspace,
+} from './panelHarness';
+
+/**
+ * The user's own country groups. A click selects only the group's countries
+ * (what people expect from a saved selection); Shift+click adds them, so
+ * groups compose. Deleting one asks first.
+ */
 
 const PRICES = [
-  ['FR', 'EUR', 4.99],
-  ['DE', 'EUR', 4.99],
-  ['RO', 'RON', 22],
-  ['BG', 'USD', 4.79],
-  ['US', 'USD', 4.99],
-] as const;
+  price('FR', 'EUR', 4.99),
+  price('DE', 'EUR', 4.99),
+  price('RO', 'RON', 22),
+  price('BG', 'EUR', 4.79),
+  price('US', 'USD', 4.99),
+];
 
-let stored: CustomGroup[] = [];
+const GROUPS: CustomGroup[] = [
+  { id: 'g1', label: 'Rich Europe', members: ['FR', 'DE'], createdAt: 1 },
+  // ES is not priced: it must never be selected through the group.
+  { id: 'g2', label: 'Eastern Europe', members: ['RO', 'BG', 'ES'], createdAt: 2 },
+];
 
-function respond(request: Request): unknown {
-  switch (request.type) {
-    case 'auth/state':
-      return {
-        signedIn: true,
-        email: 'dev@example.com',
-        name: 'Dev',
-        picture: null,
-        expiresAt: Date.now() + 3_600_000,
-        clientIdConfigured: true,
-      };
-    case 'context/get':
-      return {
-        developerId: '1',
-        consoleAppId: '42',
-        packageName: 'com.example.app',
-        packageNameSource: 'cache',
-        productKind: 'subscription',
-        productId: 'premium',
-        basePlanId: 'monthly',
-        url: 'https://play.google.com/console/u/0/developers/1/app/42/subscriptions/premium',
-        supported: true,
-      };
-    case 'products/list':
-      return { unavailable: [], products: [
-        {
-          kind: 'subscription',
-          productId: 'premium',
-          basePlanId: 'monthly',
-          label: 'premium · monthly',
-          regionCount: PRICES.length,
-        },
-      ] };
-    case 'products/pricing':
-      return {
-        packageName: 'com.example.app',
-        kind: 'subscription',
-        productId: 'premium',
-        basePlanId: 'monthly',
-        label: 'premium · monthly',
-        prices: PRICES.map(([regionCode, currency, amount]) => ({
-          regionCode,
-          currency,
-          micros: unitsToMicros(amount),
-        })),
-        raw: {},
-      };
-    case 'groups/list':
-      return stored;
-    case 'groups/save':
-      stored = [parseCustomGroup(request.group), ...stored];
-      return stored;
-    case 'groups/delete':
-      stored = stored.filter((group) => group.id !== request.id);
-      return stored;
-    default:
-      return [];
-  }
+async function openMarkets(groups: CustomGroup[] = []): Promise<{ panel: Panel; worker: FakeWorker }> {
+  const worker = createWorker(PRICES);
+  worker.groups = groups.map((group) => ({ ...group }));
+  const panel = await renderPanel(worker);
+  await workspace(panel);
+  await choosePercent(panel, '10');
+  await toMarkets(panel);
+  return { panel, worker };
 }
 
-beforeEach(() => {
-  vi.resetModules();
-  stored = [];
-  chrome.runtime.sendMessage = vi.fn(async (message: unknown) => ({
-    ok: true,
-    data: respond(message as Request),
-  })) as unknown as typeof chrome.runtime.sendMessage;
-});
-
-async function renderApp() {
-  const { App } = await import('@/app/App');
-  const view = render(<App />);
-  await screen.findByText('France');
-  return view;
-}
+const selection = (panel: Panel) => [...panel.useStore.getState().selection].sort();
+const chip = (name: string) => screen.getByRole('button', { name: startsWith(name) });
 
 describe('creating a group', () => {
   it('saves the current selection under a name', async () => {
-    const user = userEvent.setup();
-    await renderApp();
+    const { panel, worker } = await openMarkets();
+    await panel.user.click(screen.getByRole('button', { name: panel.t('markets.selection.none') }));
+    await panel.user.click(screen.getByRole('checkbox', { name: 'France' }));
+    await panel.user.click(screen.getByRole('checkbox', { name: 'Germany' }));
 
-    await user.click(screen.getByText('Clear'));
-    await user.click(screen.getByText('France'));
-    await user.click(screen.getByText('Germany'));
+    await panel.user.click(screen.getByRole('button', { name: panel.t('markets.groups.save') }));
+    const dialog = screen.getByRole('dialog', { name: panel.t('markets.groups.save') });
+    expect(within(dialog).getByText(panel.t('markets.groups.saveBody', { count: 2 }))).toBeTruthy();
+    await panel.user.type(within(dialog).getByLabelText(panel.t('markets.groups.name')), 'EU high income');
+    await panel.user.click(within(dialog).getByRole('button', { name: panel.t('action.save') }));
 
-    await user.click(screen.getByText(/Save selection as group/));
-    await user.type(screen.getByLabelText('Group name'), 'EU high income');
-    await user.click(screen.getByText('Save'));
-
-    expect(await screen.findByText('EU high income')).toBeTruthy();
-    expect(stored[0]!.members.sort()).toEqual(['DE', 'FR']);
+    expect(await screen.findByRole('button', { name: startsWith('EU high income') })).toBeTruthy();
+    expect(worker.groups[0]!.members.sort()).toEqual(['DE', 'FR']);
+    expect(await screen.findByText(panel.t('markets.groups.saved', { name: 'EU high income', count: 2 }))).toBeTruthy();
   });
 
   it('can be saved with the Enter key', async () => {
-    const user = userEvent.setup();
-    await renderApp();
-
-    await user.click(screen.getByText(/Save selection as group/));
-    await user.type(screen.getByLabelText('Group name'), 'Everything{Enter}');
-
-    expect(await screen.findByText('Everything')).toBeTruthy();
+    const { panel } = await openMarkets();
+    await panel.user.click(screen.getByRole('button', { name: panel.t('markets.groups.save') }));
+    await panel.user.type(screen.getByLabelText(panel.t('markets.groups.name')), 'Everything{Enter}');
+    expect(await screen.findByRole('button', { name: startsWith('Everything') })).toBeTruthy();
   });
 
-  it('cannot be saved empty', async () => {
-    const user = userEvent.setup();
-    await renderApp();
-
-    await user.click(screen.getByText(/Save selection as group/));
-    const save = screen.getByText('Save').closest('button')!;
+  it('cannot be saved without a name', async () => {
+    const { panel } = await openMarkets();
+    await panel.user.click(screen.getByRole('button', { name: panel.t('markets.groups.save') }));
+    const dialog = screen.getByRole('dialog', { name: panel.t('markets.groups.save') });
+    const save = within(dialog).getByRole('button', { name: panel.t('action.save') }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    await panel.user.type(within(dialog).getByLabelText(panel.t('markets.groups.name')), '   ');
     expect(save.disabled).toBe(true);
   });
 
   it('offers nothing to save when no country is selected', async () => {
-    const user = userEvent.setup();
-    await renderApp();
-    await user.click(screen.getByText('Clear'));
-
-    const button = screen.getByText(/Save selection as group/).closest('button')!;
+    const { panel } = await openMarkets();
+    await panel.user.click(screen.getByRole('button', { name: panel.t('markets.selection.none') }));
+    const button = screen.getByRole('button', { name: panel.t('markets.groups.save') }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
 });
 
 describe('using a group', () => {
-  beforeEach(() => {
-    stored = [
-      { id: 'g1', label: 'Rich Europe', members: ['FR', 'DE'], createdAt: 1 },
-      { id: 'g2', label: 'Eastern Europe', members: ['RO', 'BG'], createdAt: 2 },
-    ];
+  it('a click selects only the group’s countries', async () => {
+    const { panel } = await openMarkets(GROUPS);
+    expect(selection(panel)).toHaveLength(5);
+
+    await panel.user.click(chip('Rich Europe'));
+    expect(selection(panel)).toEqual(['DE', 'FR']);
+    expect(chip('Rich Europe').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText(panel.t('workspace.summary.selected', { count: 2 }))).toBeTruthy();
   });
 
-  it('adds its members to the selection, and composes with another group', async () => {
-    const user = userEvent.setup();
-    await renderApp();
+  it('Shift+click adds the group to the selection, so groups compose', async () => {
+    const { panel } = await openMarkets(GROUPS);
+    await panel.user.click(chip('Rich Europe'));
+    await panel.user.keyboard('{Shift>}');
+    await panel.user.click(chip('Eastern Europe'));
+    await panel.user.keyboard('{/Shift}');
 
-    await user.click(screen.getByText('Clear'));
-    await user.click(screen.getByText('Rich Europe'));
-    expect(screen.getByText('2 countries selected')).toBeTruthy();
-
-    await user.click(screen.getByText('Eastern Europe'));
-    expect(screen.getByText('4 countries selected')).toBeTruthy();
+    expect(selection(panel)).toEqual(['BG', 'DE', 'FR', 'RO']);
+    // Neither chip is "exactly the selection" any more.
+    expect(chip('Rich Europe').getAttribute('aria-pressed')).toBe('false');
+    expect(chip('Eastern Europe').getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('shows the member count on the chip', async () => {
-    await renderApp();
-    const chip = screen.getByText('Rich Europe').closest('button')!;
-    expect(within(chip).getByText('2')).toBeTruthy();
+  it('only selects countries the product is priced in, and counts those', async () => {
+    const { panel } = await openMarkets(GROUPS);
+    const eastern = chip('Eastern Europe');
+    expect(eastern.textContent).toContain('2');
+    expect(within(eastern).getByText(panel.t('count.countries', { count: 2 }))).toBeTruthy();
+    await panel.user.click(eastern);
+    expect(selection(panel)).toEqual(['BG', 'RO']);
   });
 
-  it('deletes a group without touching the others', async () => {
-    const user = userEvent.setup();
-    await renderApp();
+  it('explains click and Shift+click next to the chips', async () => {
+    const { panel } = await openMarkets(GROUPS);
+    const hint = panel.t('markets.groups.hint').replace(/<\/?\w+>/g, '');
+    expect(screen.getByText((_, node) => node?.tagName === 'P' && node.textContent === hint)).toBeTruthy();
+  });
+});
 
-    await user.click(screen.getByLabelText('Delete group Rich Europe'));
+describe('deleting a group', () => {
+  it('asks first, then deletes only that group', async () => {
+    const { panel, worker } = await openMarkets(GROUPS);
+    await panel.user.click(screen.getByRole('button', { name: panel.t('markets.groups.delete', { name: 'Rich Europe' }) }));
 
-    expect(screen.queryByText('Rich Europe')).toBeNull();
-    expect(screen.getByText('Eastern Europe')).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: panel.t('markets.groups.deleteTitle', { name: 'Rich Europe' }) });
+    expect(worker.sent('groups/delete')).toHaveLength(0);
+    await panel.user.click(within(dialog).getByRole('button', { name: panel.t('action.delete') }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: startsWith('Rich Europe') })).toBeNull());
+    expect(chip('Eastern Europe')).toBeTruthy();
+    expect(worker.sent('groups/delete')[0]!.id).toBe('g1');
+    // The selection is not touched.
+    expect(selection(panel)).toHaveLength(5);
   });
 
-  it('is offered when assigning a tier', async () => {
-    const user = userEvent.setup();
-    await renderApp();
+  it('keeps the group when the dialog is cancelled', async () => {
+    const { panel, worker } = await openMarkets(GROUPS);
+    await panel.user.click(screen.getByRole('button', { name: panel.t('markets.groups.delete', { name: 'Rich Europe' }) }));
+    await panel.user.click(screen.getByRole('button', { name: panel.t('action.cancel') }));
+    expect(chip('Rich Europe')).toBeTruthy();
+    expect(worker.sent('groups/delete')).toHaveLength(0);
+  });
+});
 
-    await user.click(screen.getByText('Strategy'));
-    await user.click(await screen.findByText('Tiers'));
+describe('groups in purchasing-power tiers', () => {
+  async function openLadder() {
+    const worker = createWorker(PRICES);
+    worker.groups = GROUPS.map((group) => ({ ...group }));
+    const panel = await renderPanel(worker);
+    await workspace(panel);
+    await chooseKind(panel, 'tiers');
+    await panel.user.click(screen.getByRole('button', { name: startsWith(panel.t('strategy.ladder.generate')) }));
+    return panel;
+  }
 
-    const select = screen.getAllByLabelText(/Add a region to T1 · Premium/)[0]!;
-    const labels = within(select)
-      .getAllByRole('option')
-      .map((option) => option.textContent);
-
-    expect(labels).toContain('Rich Europe (2)');
-    expect(labels).toContain('Eastern Europe (2)');
+  it('are offered first when assigning a region to a tier, counted on priced countries', async () => {
+    const panel = await openLadder();
+    const tier = panel.t('band.T1.label');
+    const select = screen.getByRole('combobox', { name: panel.t('strategy.tiers.addRegionLabel', { tier }) });
+    const mine = select.querySelector(`optgroup[label="${panel.t('strategy.tiers.groups.mine')}"]`)!;
+    const labels = within(mine as HTMLElement).getAllByRole('option').map((option) => option.textContent);
+    expect(labels).toEqual([
+      panel.t('strategy.tiers.groupOption', { name: 'Eastern Europe', count: 2 }),
+      panel.t('strategy.tiers.groupOption', { name: 'Rich Europe', count: 2 }),
+    ]);
   });
 
-  it('assigns its members to a tier in one step', async () => {
-    const user = userEvent.setup();
-    await renderApp();
-
-    await user.click(screen.getByText('Strategy'));
-    await user.click(await screen.findByText('Tiers'));
-    // RO and BG already sit in T3; moving Rich Europe (FR, DE) in takes it to 4.
-    await user.selectOptions(
-      screen.getAllByLabelText(/Add a region to T3 · Upper-mid/)[0]!,
+  it('assign their members to a tier in one step', async () => {
+    const panel = await openLadder();
+    const tier = panel.t('band.T3.label');
+    await panel.user.selectOptions(
+      screen.getByRole('combobox', { name: panel.t('strategy.tiers.addRegionLabel', { tier }) }),
       'custom:g1',
     );
-
-    const row = screen.getByText('T3 · Upper-mid').closest('div.flex-col') as HTMLElement;
-    expect(within(row).getByText(/4 markets/)).toBeTruthy();
+    const strategy = panel.useStore.getState().config.strategy;
+    expect(strategy.kind === 'tiers' && strategy.assignment.FR).toBe(tier);
+    expect(strategy.kind === 'tiers' && strategy.assignment.DE).toBe(tier);
   });
 });
 
 describe('validation at the boundary', () => {
   it('rejects a group with a malformed region code', () => {
-    expect(() =>
-      parseCustomGroup({ id: 'x', label: 'Bad', members: ['fr'], createdAt: 1 }),
-    ).toThrow();
+    expect(() => parseCustomGroup({ id: 'x', label: 'Bad', members: ['fr'], createdAt: 1 })).toThrow();
   });
 
   it('rejects an empty group', () => {
@@ -222,12 +205,7 @@ describe('validation at the boundary', () => {
   });
 
   it('de-duplicates members', () => {
-    const group = parseCustomGroup({
-      id: 'x',
-      label: 'Dup',
-      members: ['FR', 'FR', 'DE'],
-      createdAt: 1,
-    });
+    const group = parseCustomGroup({ id: 'x', label: 'Dup', members: ['FR', 'FR', 'DE'], createdAt: 1 });
     expect(group.members).toEqual(['FR', 'DE']);
   });
 });

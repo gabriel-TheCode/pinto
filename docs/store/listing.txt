@@ -14,8 +14,9 @@ DETAILED DESCRIPTION
 Play Console gives you two ways to price a product in 150 countries: one price
 everywhere, or 150 edits by hand.
 
-Pinto gives you the third. Select your markets, choose how the price should
-change, look at the result, apply. Minutes instead of an afternoon.
+Pinto gives you the third, in three steps that are always on screen: choose
+how prices should change, choose the countries, review every price, apply.
+Minutes instead of an afternoon.
 
 
 CHARGE LESS WHERE PEOPLE EARN LESS
@@ -55,16 +56,17 @@ reaches Google.
 Then apply, and get a straight answer about what happened — including which
 countries Google refused, and why.
 
-Wrong call? Undo restores the prices exactly as they were.
+Wrong call? Restore puts back the prices exactly as they were, after showing
+you what will change — and skips any country edited since.
 
 
 ALSO IN THE BOX
 
 - Presets you can save, export and share with your team
-- History of every operation, with one-click restore
+- History of every operation, with restore and a preview of what it changes
 - CSV export for the spreadsheet someone will ask for
-- Dry run, to rehearse without sending anything
-- A built-in guide, in English or French
+- Simulation, to rehearse without sending anything
+- Built-in help, and the whole interface in English or French
 
 
 YOUR DATA STAYS YOURS

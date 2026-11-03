@@ -46,6 +46,8 @@ export const strategyConfigSchema = z.object({
   rounding: roundingSchema,
   floorMicros: z.number().int().nonnegative().nullable(),
   ceilingMicros: z.number().int().nonnegative().nullable(),
+  maxIncrease: z.number().min(0).max(100).nullable().optional(),
+  maxDecrease: z.number().min(0).max(1).nullable().optional(),
   overrides: z.record(regionCode, z.number().int().nonnegative().max(1e12)).optional(),
 });
 
@@ -64,14 +66,16 @@ export function parsePreset(value: unknown): Preset {
   return presetSchema.parse(value) as Preset;
 }
 
+/**
+ * `path` locates the first problem (`0.config.strategy.kind`), which the
+ * interface shows; `error` is zod's English description for the log.
+ */
 export function safeParsePresetList(
   value: unknown,
-): { ok: true; presets: Preset[] } | { ok: false; error: string } {
+): { ok: true; presets: Preset[] } | { ok: false; path: string; error: string } {
   const result = presetListSchema.safeParse(value);
   if (result.success) return { ok: true, presets: result.data as Preset[] };
   const first = result.error.issues[0];
-  return {
-    ok: false,
-    error: first ? `${first.path.join('.') || 'file'}: ${first.message}` : 'Invalid preset file',
-  };
+  const path = first?.path.join('.') || '—';
+  return { ok: false, path, error: first ? `${path}: ${first.message}` : 'Invalid preset file' };
 }
