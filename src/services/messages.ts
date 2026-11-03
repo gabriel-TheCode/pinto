@@ -45,7 +45,13 @@ export interface ProductSummary {
  */
 export interface ProductCatalogue {
   products: ProductSummary[];
-  unavailable: { kind: ProductKind; code: string; params?: Record<string, string | number> }[];
+  unavailable: {
+    kind: ProductKind;
+    code: string;
+    params?: Record<string, string | number>;
+    /** Google's words or the exception, for "Technical details". */
+    detail?: string;
+  }[];
 }
 
 export interface ApplyRequest {

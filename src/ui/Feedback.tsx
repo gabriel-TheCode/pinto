@@ -4,7 +4,7 @@ import { cx } from '@/lib/cx';
 import { useFormat, useT } from '@/i18n/react';
 import { errorText } from '@/i18n/describe';
 import type { PintoErrorPayload } from '@/services/messages';
-import { Button } from './Button';
+import { Button, IconButton } from './Button';
 import { Icon, type IconName } from './Icon';
 
 export type Tone = 'neutral' | 'rise' | 'fall' | 'warn' | 'accent' | 'info' | 'success' | 'danger';
@@ -61,6 +61,8 @@ export function Callout({
   action,
   className,
   role,
+  onDismiss,
+  dismissLabel,
 }: {
   tone?: keyof typeof CALLOUT;
   title?: ReactNode;
@@ -68,6 +70,9 @@ export function Callout({
   action?: ReactNode;
   className?: string;
   role?: 'alert' | 'status';
+  /** Makes the message closable; the label names the close button. */
+  onDismiss?: () => void;
+  dismissLabel?: string;
 }) {
   const style = CALLOUT[tone];
   return (
@@ -78,6 +83,9 @@ export function Callout({
         {children && <div className="text-small text-ink-700">{children}</div>}
         {action && <div className="mt-1 flex flex-wrap gap-2">{action}</div>}
       </div>
+      {onDismiss && dismissLabel && (
+        <IconButton icon="close" size="sm" label={dismissLabel} onClick={onDismiss} className="-mt-0.5 -mr-1" />
+      )}
     </div>
   );
 }

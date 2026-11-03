@@ -66,6 +66,14 @@ describe('the stored preference', () => {
     expect(DEFAULT_SETTINGS.locale).toBe('auto');
   });
 
+  it('adds closed notices to the stored list instead of replacing it', async () => {
+    // Two tabs, each with its own panel and its own copy of the list.
+    await storage.setSettings({ dismissedNotices: ['a'] });
+    await storage.setSettings({ dismissedNotices: ['b'] });
+    await storage.setSettings({ locale: 'fr' });
+    expect((await storage.getSettings()).dismissedNotices).toEqual(['a', 'b']);
+  });
+
   it('is read from the settings Pinto saves, under the same key', async () => {
     expect(await readLocalePreference()).toBe('auto');
     await storage.setSettings({ locale: 'fr' });

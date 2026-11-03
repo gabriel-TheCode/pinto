@@ -10,6 +10,7 @@ import type {
   AuthState,
   LogEntry,
   PintoErrorPayload,
+  ProductCatalogue,
   ProductSummary,
   Request,
 } from '@/services/messages';
@@ -67,7 +68,7 @@ export interface FakeWorker {
   clientId: string | null;
   context: PageContext;
   products: ProductSummary[];
-  unavailable: { kind: ProductSummary['kind']; code: string; params?: Record<string, string | number> }[];
+  unavailable: ProductCatalogue['unavailable'];
   prices: Map<RegionCode, RegionalPrice>;
   history: OperationRecord[];
   groups: CustomGroup[];

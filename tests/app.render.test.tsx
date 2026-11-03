@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import {
   PACKAGE,
   choosePercent,
@@ -160,11 +160,81 @@ describe('product catalogue', () => {
     const panel = await renderPanel(worker);
     await workspace(panel);
 
-    expect(
-      screen.getByText(t('workspace.product.unavailableTitle', { group: t('product.group.onetime') })),
-    ).toBeTruthy();
+    expect(screen.getByText(t('workspace.product.unavailableGroupTitle', { count: 1 }))).toBeTruthy();
     expect(screen.getByText(t('workspace.product.unavailableNote'))).toBeTruthy();
     expect(screen.queryByText(t('workspace.product.noOneTime'))).toBeNull();
+  });
+
+  it('groups the listing failures in one notice that can be closed, and remembers it', async () => {
+    const worker = createWorker();
+    worker.unavailable = [
+      { kind: 'inapp', code: 'api/forbidden' },
+      { kind: 'onetime', code: 'unexpected', detail: 'TypeError: boom' },
+    ];
+    const panel = await renderPanel(worker);
+    await workspace(panel);
+
+    const title = t('workspace.product.unavailableGroupTitle', { count: 2 });
+    expect(screen.getAllByText(title)).toHaveLength(1);
+    expect(screen.getByText('TypeError: boom', { exact: false })).toBeTruthy();
+
+    const notice = screen.getByText(title).closest('div.rounded-lg') as HTMLElement;
+    await panel.user.click(within(notice).getByRole('button', { name: t('action.dismiss') }));
+    await waitFor(() => expect(screen.queryByText(title)).toBeNull());
+    // One of the two is a passing failure: closed here, reported next time.
+    expect(worker.sent('settings/update').some((r) => 'dismissedNotices' in r.patch)).toBe(false);
+  });
+
+  it('remembers a closed notice when the failure is one that never changes', async () => {
+    const worker = createWorker();
+    worker.unavailable = [{ kind: 'inapp', code: 'api/forbidden' }];
+    const panel = await renderPanel(worker);
+    await workspace(panel);
+
+    const title = t('workspace.product.unavailableGroupTitle', { count: 1 });
+    const notice = screen.getByText(title).closest('div.rounded-lg') as HTMLElement;
+    await panel.user.click(within(notice).getByRole('button', { name: t('action.dismiss') }));
+    await waitFor(() => expect(screen.queryByText(title)).toBeNull());
+    // Only the new id is sent: the worker adds it to what other tabs saved.
+    expect(worker.sent('settings/update').at(-1)!.patch.dismissedNotices).toEqual([
+      `${PACKAGE}:unavailable:inapp=api/forbidden`,
+    ]);
+  });
+
+  it('offers one reload, not two, when nothing could be listed', async () => {
+    const worker = createWorker();
+    worker.products = [];
+    worker.unavailable = [{ kind: 'subscription', code: 'api/server' }];
+    await renderPanel(worker);
+    await screen.findByText(t('workspace.listFailed.title'));
+
+    expect(screen.queryByRole('button', { name: t('action.dismiss') })).toBeNull();
+    expect(screen.queryByRole('button', { name: t('action.retry') })).toBeNull();
+    expect(screen.getAllByRole('button', { name: t('action.reload') })).toHaveLength(1);
+  });
+
+  it('keeps a closed notice closed on the next visit, and shows a different failure again', async () => {
+    const worker = createWorker();
+    worker.unavailable = [{ kind: 'inapp', code: 'api/forbidden' }];
+    const settings = { dismissedNotices: [`${PACKAGE}:unavailable:inapp=api/forbidden`] };
+    let panel = await renderPanel(worker, { settings });
+    await workspace(panel);
+    expect(screen.queryByText(t('workspace.product.unavailableGroupTitle', { count: 1 }))).toBeNull();
+    cleanup();
+
+    worker.unavailable = [{ kind: 'inapp', code: 'api/server' }];
+    panel = await renderPanel(worker, { settings });
+    await workspace(panel);
+    expect(screen.getByText(t('workspace.product.unavailableGroupTitle', { count: 1 }))).toBeTruthy();
+  });
+
+  it('lets the "no one-time products" hint be closed', async () => {
+    const worker = createWorker();
+    const panel = await renderPanel(worker);
+    await workspace(panel);
+    const hint = screen.getByText(t('workspace.product.noOneTime'));
+    await panel.user.click(within(hint.parentElement!).getByRole('button', { name: t('action.dismiss') }));
+    await waitFor(() => expect(screen.queryByText(t('workspace.product.noOneTime'))).toBeNull());
   });
 
   it('says where to create a one-time product when the app genuinely has none', async () => {
