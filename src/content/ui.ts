@@ -8,6 +8,7 @@
  */
 
 import { contentTranslator } from '@/i18n/content';
+import { MARK, markSvg } from '@/ui/mark';
 import type { Locale } from '@/i18n/core';
 
 const HOST_ID = 'pinto-root';
@@ -83,12 +84,8 @@ const STYLES = `
     outline: 2px solid #df301c; outline-offset: 2px;
   }
   .launcher[hidden] { display: none; }
-  .launcher .mark {
-    width: 22px; height: 22px; border-radius: 7px;
-    background: linear-gradient(140deg, #ff9100, #df301c);
-    display: grid; place-items: center;
-    font-size: 13px; font-weight: 700; color: #fff;
-  }
+  .launcher .mark { display: block; width: 22px; height: 22px; }
+  .launcher .mark svg { display: block; }
   .launcher .kbd {
     margin-left: 4px; padding: 1px 5px; border-radius: 4px;
     background: rgba(255,255,255,.12); font-size: 11px; font-weight: 500;
@@ -240,7 +237,8 @@ export function injectUi(panelUrl: string): InjectedUi {
   launcher.type = 'button';
   launcher.dataset.i18nLabel = 'content.launcherLabel';
   launcher.innerHTML =
-    '<span class="mark" aria-hidden="true">P.</span><span data-i18n="content.launcher"></span>' +
+    `<span class="mark">${markSvg(MARK, { id: 'pinto-mark', size: 22 })}</span>` +
+    '<span data-i18n="content.launcher"></span>' +
     '<span class="kbd" aria-hidden="true">⇧P</span>';
 
   const panel = document.createElement('div');

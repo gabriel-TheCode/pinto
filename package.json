@@ -5,6 +5,9 @@
   "description": "Pinto — bulk pricing for Google Play. Bulk pricing, without the bulk work.",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "npm run build && node scripts/dev.mjs",
     "build": "npm run clean && npm run icons && npm run build:ui && npm run build:content && node scripts/finalize.mjs",

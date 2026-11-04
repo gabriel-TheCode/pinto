@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { cx } from '@/lib/cx';
 import { Icon } from './Icon';
 import { IconButton } from './Button';
+import { BRAND, MARK, markPath } from './mark';
 
 /**
  * The heading a screen opens with. It takes focus when the screen appears, so
@@ -146,13 +147,19 @@ export function Kbd({ children }: { children: ReactNode }) {
 
 /** Pinto's mark. Decorative: the product name is always written next to it. */
 export function Logo({ size = 24 }: { size?: number }) {
+  // Several logos can share a document; each needs its own gradient id.
+  const gradient = useId();
+  const s = MARK.size;
   return (
-    <span
-      aria-hidden="true"
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.46) }}
-      className="grid shrink-0 place-items-center rounded-[28%] bg-gradient-to-br from-brand-from to-brand-to font-bold text-white"
-    >
-      P.
-    </span>
+    <svg aria-hidden="true" viewBox={`0 0 ${s} ${s}`} width={size} height={size} className="shrink-0">
+      <defs>
+        <linearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={BRAND.from} />
+          <stop offset="1" stopColor={BRAND.to} />
+        </linearGradient>
+      </defs>
+      <rect width={s} height={s} rx={MARK.radius} fill={`url(#${gradient})`} />
+      <path fill="#fff" fillRule="evenodd" d={markPath(MARK)} />
+    </svg>
   );
 }
