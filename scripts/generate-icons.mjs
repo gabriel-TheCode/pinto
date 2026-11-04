@@ -1,41 +1,33 @@
 /**
  * Generates the extension icons as real PNGs with no image dependency.
  *
- * The mark is a rounded square with the warm brand gradient (#FF9100 ->
- * #DF301C) and a pixelated white "P." — a blocky P followed by a period —
- * drawn straight into an RGBA buffer and deflated into a PNG. Everything is
- * hard-edged: the glyph snaps to a coarse bitmap so it reads as pixel art, not
- * a smooth letterform.
+ * The shapes come from src/ui/mark.ts, the one definition of Pinto's mark, and
+ * are rasterised here: each pixel is sampled on a 6x6 grid, which gives the
+ * edges proper anti-aliasing without a renderer. The toolbar size uses the
+ * pixel-snapped drawing; the others scale the full one. The 128 px icon keeps
+ * 16 px of transparent margin on each side, as the Chrome Web Store asks, so
+ * the tile is 96 px there.
  */
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BRAND, MARK, MARK_16 } from '../src/ui/mark.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, '../public/icons');
 
-const SIZES = [16, 32, 48, 128];
-
-const BRAND_FROM = [0xff, 0x91, 0x00]; // #FF9100
-const BRAND_TO = [0xdf, 0x30, 0x1c]; // #DF301C
-
-/**
- * 6-wide x 8-tall bitmap of "P." — a blocky P (stem column 0, bowl columns
- * 0-3) with a 2x2 period at the bottom-right.
- */
-const GLYPH_W = 6;
-const GLYPH_H = 8;
-const GLYPH = [
-  '111100', // bowl top
-  '100100',
-  '100100',
-  '111100', // bowl close
-  '100000',
-  '100000',
-  '100011', // stem + top of period
-  '000011', // period
+const ICONS = [
+  { size: 16, drawing: MARK_16, inset: 0 },
+  { size: 32, drawing: MARK, inset: 0 },
+  { size: 48, drawing: MARK, inset: 0 },
+  { size: 128, drawing: MARK, inset: 16 },
 ];
+const SAMPLES = 6;
+
+const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const FROM = rgb(BRAND.from);
+const TO = rgb(BRAND.to);
 
 function crc32(buf) {
   let c = ~0;
@@ -74,61 +66,67 @@ function png(size, pixels) {
   ]);
 }
 
-function lerp(a, b, t) {
-  return Math.round(a + (b - a) * t);
+/** Even-odd ray test. */
+function inPolygon(x, y, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i];
+    const [xj, yj] = points[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
 }
 
-function render(size) {
+function inRoundedSquare(x, y, size, radius) {
+  const cx = Math.min(Math.max(x, radius), size - radius);
+  const cy = Math.min(Math.max(y, radius), size - radius);
+  return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2 && x >= 0 && y >= 0 && x <= size && y <= size;
+}
+
+function inGlyph(x, y, { outline, hole }) {
+  if (!inPolygon(x, y, outline)) return false;
+  if ('polygon' in hole) return !inPolygon(x, y, hole.polygon);
+  const [cx, cy, r] = hole.circle;
+  return (x - cx) ** 2 + (y - cy) ** 2 > r * r;
+}
+
+function render({ size, drawing, inset }) {
   const pixels = Buffer.alloc(size * size * 4);
-  const radius = size * 0.24;
-
-  // Snap the glyph to whole pixels so its cells stay crisp and square at every
-  // size — that hard edge is what makes it read as "pixelated".
-  const cell = Math.max(1, Math.floor((size * 0.4) / GLYPH_W));
-  const glyphW = cell * GLYPH_W;
-  const glyphH = cell * GLYPH_H;
-  const glyphX = Math.round((size - glyphW) / 2);
-  const glyphY = Math.round((size - glyphH) / 2);
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const i = (y * size + x) * 4;
-      if (!insideRounded(x, y, size, radius)) continue;
-
-      const t = (x + y) / (2 * size);
-      let r = lerp(BRAND_FROM[0], BRAND_TO[0], t);
-      let g = lerp(BRAND_FROM[1], BRAND_TO[1], t);
-      let b = lerp(BRAND_FROM[2], BRAND_TO[2], t);
-
-      const gx = Math.floor((x - glyphX) / cell);
-      const gy = Math.floor((y - glyphY) / cell);
-      const inGlyph =
-        gx >= 0 && gx < GLYPH_W && gy >= 0 && gy < GLYPH_H && GLYPH[gy][gx] === '1';
-      if (inGlyph) {
-        r = 255;
-        g = 255;
-        b = 255;
+  const tile = size - inset * 2;
+  const scale = drawing.size / tile;
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      let covered = 0;
+      const sum = [0, 0, 0];
+      for (let sy = 0; sy < SAMPLES; sy++) {
+        for (let sx = 0; sx < SAMPLES; sx++) {
+          // Sample position in drawing units.
+          const x = (px - inset + (sx + 0.5) / SAMPLES) * scale;
+          const y = (py - inset + (sy + 0.5) / SAMPLES) * scale;
+          if (!inRoundedSquare(x, y, drawing.size, drawing.radius)) continue;
+          covered++;
+          if (inGlyph(x, y, drawing)) {
+            sum[0] += 255;
+            sum[1] += 255;
+            sum[2] += 255;
+          } else {
+            // Same diagonal as the SVG's x1=0 y1=0 x2=1 y2=1 gradient.
+            const t = (x + y) / (2 * drawing.size);
+            for (let c = 0; c < 3; c++) sum[c] += FROM[c] + (TO[c] - FROM[c]) * t;
+          }
+        }
       }
-
-      pixels[i] = r;
-      pixels[i + 1] = g;
-      pixels[i + 2] = b;
-      pixels[i + 3] = 255;
+      if (!covered) continue;
+      const i = (py * size + px) * 4;
+      for (let c = 0; c < 3; c++) pixels[i + c] = Math.round(sum[c] / covered);
+      pixels[i + 3] = Math.round((255 * covered) / SAMPLES ** 2);
     }
   }
   return pixels;
 }
 
-function insideRounded(x, y, size, radius) {
-  const cx = Math.min(Math.max(x + 0.5, radius), size - radius);
-  const cy = Math.min(Math.max(y + 0.5, radius), size - radius);
-  const dx = x + 0.5 - cx;
-  const dy = y + 0.5 - cy;
-  return dx * dx + dy * dy <= radius * radius;
-}
-
 mkdirSync(outDir, { recursive: true });
-for (const size of SIZES) {
-  writeFileSync(resolve(outDir, `icon-${size}.png`), png(size, render(size)));
+for (const icon of ICONS) {
+  writeFileSync(resolve(outDir, `icon-${icon.size}.png`), png(icon.size, render(icon)));
 }
-console.log(`icons: wrote ${SIZES.length} files to public/icons`);
+console.log(`icons: wrote ${ICONS.length} files to public/icons`);

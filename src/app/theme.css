@@ -62,10 +62,6 @@
   --color-cyan-600: #009cb0;
   --color-cyan-700: #00788a;
 
-  /* Warm identity gradient — the Pinto mark only. */
-  --color-brand-from: #ff9100;
-  --color-brand-to: #df301c;
-
   /* Up — a teal-green that sits beside the cyan accent (5:1 on white). */
   --color-rise-500: #0a7a56;
   --color-rise-50: #e4f5ee;

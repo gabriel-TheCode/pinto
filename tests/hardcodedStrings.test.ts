@@ -35,7 +35,6 @@ const TEXT_PROPS = new Set([
  * must be a mark, not a word.
  */
 const ALLOWED = new Set([
-  'P.', // the logo mark
   '⇧P', // key cap for the launcher shortcut, aria-hidden
 ]);
 
@@ -164,7 +163,7 @@ describe('the scanner', () => {
   });
 
   it('allows only the listed marks', () => {
-    expect(scan(`const a = <span>P.</span>;`)).toEqual([]);
+    expect(scan(`const a = <kbd>⇧P</kbd>;`)).toEqual([]);
   });
 });
 

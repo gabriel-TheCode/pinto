@@ -36,17 +36,9 @@
       }
       .canvas > * { position: relative; }
 
-      /* --- brand mark: the extension icon's glyph, redrawn as cells so it stays
-             hard-edged at any size instead of being an upscaled 128px PNG --- */
-      .mark {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        grid-template-rows: repeat(8, 1fr);
-        background: linear-gradient(135deg, #ff9100, #df301c);
-        box-shadow: 0 10px 30px rgba(223, 48, 28, 0.35);
-      }
-      .mark i { display: block; }
-      .mark i.on { background: #fff; }
+      /* --- brand mark: the extension icon, as vector (src/ui/mark.ts) --- */
+      .mark { display: block; flex-shrink: 0; box-shadow: 0 10px 30px rgba(223, 48, 28, 0.35); }
+      .mark svg { display: block; }
 
       .wordmark { font-weight: 800; letter-spacing: -0.02em; }
       .tagline { color: #ffd9a3; font-weight: 600; }

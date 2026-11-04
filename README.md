@@ -70,7 +70,7 @@ Builds and writes `release/pinto-<version>.zip`, ready to upload.
 
 ## Install and run locally
 
-Requires Node 20+ and Chrome 114+.
+Requires Node 22.18+ (the icon script reads `src/ui/mark.ts` directly) and Chrome 114+.
 
 ```bash
 npm install

@@ -12,42 +12,19 @@
 import { createRoot } from 'react-dom/client';
 import { installChromeStub, FIXTURE_PRODUCT } from './fixtures';
 import { poseStore, markReady } from './pose';
+import { MARK, markSvg } from '@/ui/mark';
 
 installChromeStub();
 await import('./styles.css');
 
-/** The icon glyph: a blocky P with a period, 6 wide by 8 tall. */
-const GLYPH = [
-  '111100',
-  '100100',
-  '100100',
-  '111100',
-  '100000',
-  '100000',
-  '100011',
-  '000011',
-];
-
+/** The extension's mark, drawn as vector so it stays sharp at tile size. */
 function Mark({ size }: { size: number }) {
-  // Snap every cell to a whole pixel, the way generate-icons.mjs does, so the
-  // mark reads as pixel art rather than a blurry letterform.
-  const cell = Math.floor((size * 0.42) / 6);
-  const pad = Math.round((size - cell * 6) / 2);
   return (
-    <div
+    <span
       className="mark"
-      style={{
-        width: size,
-        height: size,
-        borderRadius: Math.round(size * 0.24),
-        padding: `${Math.round((size - cell * 8) / 2)}px ${pad}px`,
-      }}
-      aria-label="Pinto"
-    >
-      {GLYPH.flatMap((row, y) =>
-        [...row].map((on, x) => <i key={`${x}-${y}`} className={on === '1' ? 'on' : ''} />),
-      )}
-    </div>
+      style={{ width: size, height: size, borderRadius: (size * MARK.radius) / MARK.size }}
+      dangerouslySetInnerHTML={{ __html: markSvg(MARK, { id: `mark-${size}`, size }) }}
+    />
   );
 }
 
