@@ -2,6 +2,8 @@
 
 **Bulk pricing, without the bulk work.**
 
+[![Available in the Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Add_to_Chrome-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/igknhmgohkafeencbjlefaankeanphgi)
+
 A Chrome extension for Android developers who need to change Google Play prices across many countries at once — with a review step before anything is written, and an honest report of what actually happened afterwards.
 
 ---
